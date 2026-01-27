@@ -4,9 +4,8 @@ const helmet = require("helmet");
 require("dotenv").config();
 const app = express();
 
-
 // Database connection
-const connectDB = require('./database/db');
+const connectDB = require("./database/db");
 connectDB();
 
 //Middlewares
@@ -19,7 +18,9 @@ const authRoutes = require("./routes/auth");
 
 //Routes
 app.use("/api/auth", authRoutes);
-
+app.get("/", (req, res) => {
+  res.send("Welcome to the API");
+});
 
 //Start the server
 const PORT = process.env.PORT || 5001;

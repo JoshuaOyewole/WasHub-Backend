@@ -9,7 +9,7 @@ const {
   sendOTP,
   verifyOTP,
 } = require("../controllers/authController");
-const { protect } = require("../middlewares/auth");
+//const { protect } = require("../middlewares/auth");
 
 
 

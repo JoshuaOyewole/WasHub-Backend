@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { StatusCodes } = require("http-status-codes");
-const User = require("../../../../v2/backend/models/User");
+const User = require("../models/User");
 const mongoose = require("mongoose");
 
 // Protect routes

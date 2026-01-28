@@ -61,19 +61,21 @@ exports.login = async (req, res) => {
   try {
     const result = await userService.loginUserService(req.body);
 
-    if (result.status) {
-      return res.status(result.statusCode).json({
-        status: false,
-        message: result.error.message,
-        errors: result.error.details || null,
-        statusCode: result.statusCode,
+    // Check if login was successful (has data property)
+    if (result.data && result.data.token) {
+      res.status(result.statusCode).json({
+        status: true,
+        token: result.data.token,
+        data: result.data.user,
       });
+      return;
     }
 
     res.status(result.statusCode).json({
-      status: true,
-      token: result.data.token,
-      data: result.data.user,
+      status: false,
+      message: result.message?.message || result.message || "Login failed",
+      errors: result.message?.details || null,
+      statusCode: result.statusCode,
     });
   } catch (error) {
     console.error("Login controller message:", error);

@@ -11,10 +11,18 @@ exports.register = async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
 
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    if (!token) {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        status: false,
+        message: "Verification token is required",
+        statusCode: StatusCodes.FORBIDDEN,
+      });
+    }
 
-    console.log("payload", payload);
-    if (payload.purpose !== "registration") {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    console.log("decoded", decoded);
+    if (decoded.purpose !== "registration") {
       return res.status(StatusCodes.FORBIDDEN).json({
         status: false,
         message: "Invalid verification token",
@@ -158,6 +166,12 @@ exports.verifyOTP = async (req, res) => {
   try {
     const { otp, email } = req.body;
 
+    if (!otp || !email) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: false,
+        message: "email and otp are required",
+      });
+    }
     const response = await OTPService.verifyOTP({ email, otp });
 
     if (!response.status) {

@@ -21,7 +21,6 @@ exports.register = async (req, res) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    console.log("decoded", decoded);
     if (decoded.purpose !== "registration") {
       return res.status(StatusCodes.FORBIDDEN).json({
         status: false,
@@ -73,15 +72,15 @@ exports.login = async (req, res) => {
     if (result.data && result.data.token) {
       res.status(result.statusCode).json({
         status: true,
-        token: result.data.token,
-        data: result.data.user,
+        statusCode: result.statusCode,
+        data: { user: result.data.user, token: result.data.token },
       });
       return;
     }
 
     res.status(result.statusCode).json({
       status: false,
-      message: result.message?.message || result.message || "Login failed",
+      error: result.message?.message || result.message || "Login failed",
       errors: result.message?.details || null,
       statusCode: result.statusCode,
     });
@@ -89,7 +88,8 @@ exports.login = async (req, res) => {
     console.error("Login controller message:", error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       status: false,
-      message: "Server Error",
+      error: "Server Error",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
     });
   }
 };

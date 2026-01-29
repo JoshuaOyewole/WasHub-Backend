@@ -34,6 +34,7 @@ async function rbac(token, accountType) {
     }
 
     const authorized = await verifyToken(token);
+  
     //let user = await fetchUser(authorized.id);
     let user = null;
 
@@ -95,10 +96,12 @@ exports.getTokenFromHeaders = (req, res, next) => {
       token = req.cookies.token;
     }
 
+
     // Make sure token exists
     if (!token) {
       return res.status(StatusCodes.UNAUTHORIZED).json({
         status: false,
+        statusCode: StatusCodes.UNAUTHORIZED,
         message: "Access token is required.",
       });
     }
@@ -118,7 +121,8 @@ exports.adminOnly = async (req, res, next) => {
   if (authorized.status !== true) {
     console.log("Unauthorized admin access attempt detected.:", authorized);
     return res.status(StatusCodes.UNAUTHORIZED).json({
-      status: StatusCodes.UNAUTHORIZED,
+      status: false,
+      statusCode: StatusCodes.UNAUTHORIZED,
       message: authorized.error,
     });
   }
@@ -132,10 +136,11 @@ exports.userOrAdmin = async (req, res, next) => {
   const authorized = await rbac(token, "userOrAdmin");
 
   if (authorized.status !== true) {
-    console.error("Unauthorized user access attempt detected.");
+  
     return res.status(StatusCodes.UNAUTHORIZED).json({
-      status: StatusCodes.UNAUTHORIZED,
-      message: authorized.error,
+      status: false,
+      statusCode: authorized.status || StatusCodes.UNAUTHORIZED,
+      message: authorized.error || authorized.message || "Unauthorized access",
     });
   }
   req.user = { id: new mongoose.Types.ObjectId(authorized.user._id) };
@@ -147,10 +152,11 @@ exports.userOnly = async (req, res, next) => {
   const authorized = await rbac(token, "customer");
 
   if (authorized.status !== true) {
-    console.error("Unauthorized user access attempt detected.");
+    console.error("Unauthorized user access attempt detected.", authorized);
     return res.status(StatusCodes.UNAUTHORIZED).json({
-      status: StatusCodes.UNAUTHORIZED,
-      message: authorized.error,
+      status: false,
+      statusCode: StatusCodes.UNAUTHORIZED,
+      message: authorized.error || authorized.message || "Unauthorized access",
     });
   }
   req.user = { id: new mongoose.Types.ObjectId(authorized.user._id) };

@@ -113,6 +113,49 @@ exports.logout = async (req, res) => {
   }
 };
 
+// @desc    Get current user
+// @route   GET /api/auth/me
+// @access  Private
+exports.getMe = async (req, res) => {
+  try {
+    // req.user is set by auth middleware
+    if (!req.user || !req.user.id) {
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        status: false,
+        message: "Unauthorized",
+        statusCode: StatusCodes.UNAUTHORIZED,
+      });
+    }
+
+    // Call service to fetch user details
+    const result = await userService.getUserByIdService(req.user.id);
+
+   
+    // Handle errors from service
+    if (!result.data) {
+      return res.status(result.statusCode).json({
+        status: false,
+        message: result.message,
+        statusCode: result.statusCode,
+      });
+    }
+
+    // Return successful response
+    res.status(result.statusCode).json({
+      status: true,
+      data: result.data,
+      statusCode: result.statusCode,
+    });
+  } catch (error) {
+    console.error("GetMe controller error:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      status: false,
+      message: "Server Error",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    });
+  }
+};
+
 // @route   GET /api/auth/send-otp
 // @access  Public
 exports.sendOTP = async (req, res) => {

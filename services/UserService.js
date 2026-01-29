@@ -125,7 +125,7 @@ exports.loginUserService = async (body) => {
         message: "Invalid credentials",
         statusCode: StatusCodes.UNAUTHORIZED,
         status: false,
-      }
+      };
     }
 
     // Generate JWT token
@@ -134,17 +134,13 @@ exports.loginUserService = async (body) => {
     // Prepare user response data
     const userResponse = {
       userId: user._id,
-      name: user.name,
+      name: user.firstname,
       email: user.email,
       role: user.role,
-      createdAt: user.createdAt,
+      profile_picture: user?.profile_picture ?? null,
     };
 
-    // Add location and skills to response for talents
-    if (user.role === "talent") {
-      userResponse.location = user.location;
-      userResponse.skills = user.skills;
-    }
+  
 
     return {
       data: {
@@ -188,6 +184,56 @@ const generateToken = (user) => {
 };
 
 exports.generateTokenService = generateToken;
+
+/**
+ * Get user by ID (for /me endpoint)
+ * @param {String} userId - User ID
+ * @returns {Promise<Object>} - Service response object
+ */
+exports.getUserByIdService = async (userId) => {
+  try {
+    // Fetch user from repository
+    const user = await UserRepository.findById(userId);
+
+    if (!user) {
+      return {
+        message: "User not found",
+        statusCode: StatusCodes.NOT_FOUND,
+      };
+    }
+
+    // Prepare sanitized user response (exclude sensitive fields)
+    const userResponse = {
+      userId: user._id,
+      name: `${user.firstname} ${user.lastname}`,
+      email: user.email,
+      role: user.role,
+      phoneNumber: user.phoneNumber,
+      profile_picture: user?.profile_picture,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    // Add role-specific fields if needed
+    if (user.role === "talent") {
+      userResponse.location = user.location;
+      userResponse.skills = user.skills;
+    }
+
+    return {
+      data: {
+        user: userResponse,
+      },
+      statusCode: StatusCodes.OK,
+    };
+  } catch (error) {
+    console.error("Error fetching user by ID:", error);
+    return {
+      message: "Internal server error occurred while fetching user",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    };
+  }
+};
 
 module.exports = {
   ...exports,

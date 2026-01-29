@@ -4,12 +4,12 @@ const router = express.Router();
 const {
   register,
   login,
-  //getMe,
+  getMe,
   //logout,
   sendOTP,
   verifyOTP,
 } = require("../controllers/authController");
-//const { protect } = require("../middlewares/auth");
+const { getTokenFromHeaders, userOrAdmin } = require("../middlewares/auth");
 
 
 
@@ -19,7 +19,8 @@ router.post("/login", login);
 router.post("/send-otp", sendOTP);
 router.post("/verify-otp", verifyOTP);
 
-//router.get("/me", protect, getMe);
+// Protected route - Get current user
+router.get("/me", getTokenFromHeaders, userOrAdmin, getMe);
 
 
 module.exports = router;

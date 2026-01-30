@@ -15,9 +15,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const authRoutes = require("./routes/auth");
+const washRequestRoutes = require("./routes/washRequest");
+const vehicleRoutes = require("./routes/vehicle");
 
 //Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/wash-requests", washRequestRoutes);
+app.use("/api/vehicles", vehicleRoutes);
 app.get("/", (req, res) => {
   res.send("Welcome to the API");
 });

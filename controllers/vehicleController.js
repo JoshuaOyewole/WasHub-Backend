@@ -47,7 +47,10 @@ exports.getVehicleById = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
+
+  
     const result = await VehicleService.getVehicleByIdService(id, userId);
+
 
     if (!result.status) {
       return res.status(result.statusCode).json({ status: result.status, error: result.error,statusCode: result.statusCode});

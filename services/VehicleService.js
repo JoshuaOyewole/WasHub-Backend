@@ -26,8 +26,8 @@ exports.createVehicleService = async (body, userId) => {
 
     if (existing) {
       return {
-        error: "Vehicle with this plate number already exists" ,
-        status:false,
+        error: "Vehicle with this plate number already exists",
+        status: false,
         statusCode: StatusCodes.CONFLICT,
       };
     }
@@ -53,13 +53,15 @@ exports.createVehicleService = async (body, userId) => {
 exports.getVehiclesService = async (userId, inWishlist) => {
   try {
     const query = { userId };
-    
+
     // Add wishlist filter if provided
     if (inWishlist !== undefined) {
-      query.inWishlist = inWishlist === 'true' || inWishlist === true;
+      query.inWishlist = inWishlist === "true" || inWishlist === true;
     }
-    
-    const vehicles = await VehicleRepository.find(query, { sort: { createdAt: -1 } });
+
+    const vehicles = await VehicleRepository.find(query, {
+      sort: { createdAt: -1 },
+    });
     return {
       data: vehicles,
       status: true,
@@ -80,19 +82,35 @@ exports.getVehicleByIdService = async (id, userId) => {
   try {
     const vehicle = await VehicleRepository.findById(id);
     if (!vehicle) {
-      return { error: "Vehicle not found" , 
+      return {
+        error: "Vehicle not found",
         status: false,
-        statusCode: StatusCodes.NOT_FOUND };
+        statusCode: StatusCodes.NOT_FOUND,
+      };
     }
 
-    if (vehicle.userId.toString() !== userId) {
-      return { error: "Unauthorized to access this vehicle" , status: false, statusCode: StatusCodes.FORBIDDEN };
+
+    if (!vehicle.userId.equals(userId)) {
+      return {
+        error: "Unauthorized to access this vehicle",
+        status: false,
+        statusCode: StatusCodes.FORBIDDEN,
+      };
     }
 
-    return { data: vehicle, message: "Vehicle retrieved successfully", statusCode: StatusCodes.OK };
+    return {
+      data: vehicle,
+      status: true,
+      message: "Vehicle retrieved successfully",
+      statusCode: StatusCodes.OK,
+    };
   } catch (error) {
     console.error("Error fetching vehicle:", error);
-    return { error: error.message || "Failed to fetch vehicle" , status: false, statusCode: StatusCodes.INTERNAL_SERVER_ERROR };
+    return {
+      error: error.message || "Failed to fetch vehicle",
+      status: false,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    };
   }
 };
 
@@ -100,18 +118,35 @@ exports.updateVehicleService = async (id, updateData, userId) => {
   try {
     const vehicle = await VehicleRepository.findById(id);
     if (!vehicle) {
-      return { error: "Vehicle not found" , status: false, statusCode: StatusCodes.NOT_FOUND };
+      return {
+        error: "Vehicle not found",
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+      };
     }
 
     if (vehicle.userId.toString() !== userId) {
-      return { error: "Unauthorized to update this vehicle" , status: false, statusCode: StatusCodes.FORBIDDEN };
+      return {
+        error: "Unauthorized to update this vehicle",
+        status: false,
+        statusCode: StatusCodes.FORBIDDEN,
+      };
     }
 
     const updated = await VehicleRepository.updateById(id, updateData);
-    return { data: updated, message: "Vehicle updated successfully", status: true, statusCode: StatusCodes.OK };
+    return {
+      data: updated,
+      message: "Vehicle updated successfully",
+      status: true,
+      statusCode: StatusCodes.OK,
+    };
   } catch (error) {
     console.error("Error updating vehicle:", error);
-    return { error: error.message || "Failed to update vehicle" , status: false, statusCode: StatusCodes.INTERNAL_SERVER_ERROR };
+    return {
+      error: error.message || "Failed to update vehicle",
+      status: false,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    };
   }
 };
 
@@ -119,18 +154,34 @@ exports.deleteVehicleService = async (id, userId) => {
   try {
     const vehicle = await VehicleRepository.findById(id);
     if (!vehicle) {
-      return { error: "Vehicle not found" , status: false, statusCode: StatusCodes.NOT_FOUND };
+      return {
+        error: "Vehicle not found",
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+      };
     }
 
     if (vehicle.userId.toString() !== userId) {
-      return { error: "Unauthorized to delete this vehicle" , status: false, statusCode: StatusCodes.FORBIDDEN };
+      return {
+        error: "Unauthorized to delete this vehicle",
+        status: false,
+        statusCode: StatusCodes.FORBIDDEN,
+      };
     }
 
     await VehicleRepository.deleteById(id);
-    return {  message: "Vehicle deleted successfully", status: true, statusCode: StatusCodes.OK };
+    return {
+      message: "Vehicle deleted successfully",
+      status: true,
+      statusCode: StatusCodes.OK,
+    };
   } catch (error) {
     console.error("Error deleting vehicle:", error);
-    return { error: error.message || "Failed to delete vehicle" , status: false, statusCode: StatusCodes.INTERNAL_SERVER_ERROR };
+    return {
+      error: error.message || "Failed to delete vehicle",
+      status: false,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    };
   }
 };
 
@@ -138,15 +189,27 @@ exports.addToWashService = async (id, userId) => {
   try {
     const vehicle = await VehicleRepository.findById(id);
     if (!vehicle) {
-      return { error: "Vehicle not found", status: false, statusCode: StatusCodes.NOT_FOUND };
+      return {
+        error: "Vehicle not found",
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+      };
     }
 
     if (vehicle.userId.toString() !== userId) {
-      return { error: "Unauthorized to modify this vehicle", status: false, statusCode: StatusCodes.FORBIDDEN };
+      return {
+        error: "Unauthorized to modify this vehicle",
+        status: false,
+        statusCode: StatusCodes.FORBIDDEN,
+      };
     }
 
     if (vehicle.inWishlist) {
-      return { error: "Vehicle is already in My Wash", status: false, statusCode: StatusCodes.BAD_REQUEST };
+      return {
+        error: "Vehicle is already in My Wash",
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+      };
     }
 
     const updated = await VehicleRepository.updateById(id, {
@@ -174,15 +237,27 @@ exports.removeFromWashService = async (id, userId) => {
   try {
     const vehicle = await VehicleRepository.findById(id);
     if (!vehicle) {
-      return { error: "Vehicle not found", status: false, statusCode: StatusCodes.NOT_FOUND };
+      return {
+        error: "Vehicle not found",
+        status: false,
+        statusCode: StatusCodes.NOT_FOUND,
+      };
     }
 
     if (vehicle.userId.toString() !== userId) {
-      return { error: "Unauthorized to modify this vehicle", status: false, statusCode: StatusCodes.FORBIDDEN };
+      return {
+        error: "Unauthorized to modify this vehicle",
+        status: false,
+        statusCode: StatusCodes.FORBIDDEN,
+      };
     }
 
     if (!vehicle.inWishlist) {
-      return { error: "Vehicle is not in My Wash", status: false, statusCode: StatusCodes.BAD_REQUEST };
+      return {
+        error: "Vehicle is not in My Wash",
+        status: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+      };
     }
 
     const updated = await VehicleRepository.updateById(id, {

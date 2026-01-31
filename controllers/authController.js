@@ -61,7 +61,7 @@ exports.register = async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
+   
     if (decoded.purpose !== "registration") {
       return res.status(StatusCodes.FORBIDDEN).json({
         status: false,
@@ -71,18 +71,19 @@ exports.register = async (req, res) => {
     }
 
     const result = await userService.createUserService(req.body);
+  
 
-    if (result.error) {
+    if (!result.status) {
       return res.status(result.statusCode).json({
-        status: false,
+        status: result.status,
         error: result.error.message || result.error,
-        errors: result.error.details || null,
+        data: result.error.details || null,
         statusCode: result.statusCode,
       });
     }
-
+  
     res.status(result.statusCode).json({
-      status: true,
+      status: result.status,
       //token: result.data.token,
       message: "Account created Successfully!",
       statusCode: result.statusCode,
@@ -90,16 +91,16 @@ exports.register = async (req, res) => {
   } catch (error) {
     if (error.name === "TokenExpiredError") {
       return res.status(StatusCodes.FORBIDDEN).json({
-        status: false,
-        error: error.message,
-        statusCode: StatusCodes.FORBIDDEN,
+        status: error.status || false,
+        error: error.message || error.error || "Verification token has expired",
+        statusCode: error.statusCode || StatusCodes.FORBIDDEN,
       });
     }
-    console.error("Register controller message:", JSON.stringify(error));
+
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      status: false,
-      error: "Server Error",
-      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      status: error.status || false,
+      error: error.error ||  "Server Error",
+      statusCode: error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -114,7 +115,7 @@ exports.login = async (req, res) => {
     // Check if login was successful (has data property)
     if (result.data && result.data.token) {
       res.status(result.statusCode).json({
-        status: true,
+        status: result.status || true,
         statusCode: result.statusCode,
         data: { user: result.data.user, token: result.data.token },
       });
@@ -122,17 +123,17 @@ exports.login = async (req, res) => {
     }
 
     res.status(result.statusCode).json({
-      status: false,
+      status: result.status || false,
       error: result.message?.message || result.message || "Login failed",
-      errors: result.message?.details || null,
+      data: result.message?.details || null,
       statusCode: result.statusCode,
     });
   } catch (error) {
     console.error("Login controller message:", error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      status: false,
-      error: "Server Error",
-      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      status: error.status || false,
+      error: error.error || "Server Error",
+      statusCode: error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -145,13 +146,15 @@ exports.logout = async (req, res) => {
     // Optionally, you can implement token blacklisting on server side.
     res.status(StatusCodes.OK).json({
       status: true,
+      statusCode: StatusCodes.OK,
       message: "User logged out successfully",
     });
   } catch (error) {
     console.error("Logout controller message:", error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       status: false,
-      message: "Server Error",
+      error: error.error || error.message || "Server Error",
+      statusCode: error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -165,7 +168,7 @@ exports.getMe = async (req, res) => {
     if (!req.user || !req.user.id) {
       return res.status(StatusCodes.UNAUTHORIZED).json({
         status: false,
-        message: "Unauthorized",
+        error: "Unauthorized",
         statusCode: StatusCodes.UNAUTHORIZED,
       });
     }
@@ -176,24 +179,24 @@ exports.getMe = async (req, res) => {
     // Handle errors from service
     if (!result.data) {
       return res.status(result.statusCode).json({
-        status: false,
-        message: result.message,
+        status: result.status || false,
+        error: result.error || result.message || "Failed to fetch user data",
         statusCode: result.statusCode,
       });
     }
 
     // Return successful response
     res.status(result.statusCode).json({
-      status: true,
+      status: result.status || true,
       data: result.data,
       statusCode: result.statusCode,
     });
   } catch (error) {
     console.error("GetMe controller error:", error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      status: false,
-      message: "Server Error",
-      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      status: error.status || false,
+      error: error.error || "Server Error",
+      statusCode: error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -206,7 +209,7 @@ exports.sendOTP = async (req, res) => {
     if (!validation.isValid) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         status: false,
-        message: validation.errors[0].message,
+        error: validation.errors[0].message,
         statusCode: StatusCodes.BAD_REQUEST,
         //errors: validation.errors,
       });
@@ -215,7 +218,7 @@ exports.sendOTP = async (req, res) => {
     const { otp, otpHash, expiresAt } = await OTPService.generateOTP(email);
 
     //save to OTP collection
-    const result = await OTPService.saveOTP(
+    await OTPService.saveOTP(
       email,
       (OTPcategory = "email_verification"),
       otpHash,
@@ -223,23 +226,23 @@ exports.sendOTP = async (req, res) => {
     );
 
     // Send OTP via email
-    await emailService.sendEmail({
+      await emailService.sendEmail({
       to: email,
       subject: "Your OTP Code",
       template: "sendOtp",
       data: { otp, email },
-    });
-
+    }); 
     res.status(StatusCodes.OK).json({
       status: true,
-      emailSent: true,
+      data:{emailSent: true},
       message: "OTP sent successfully",
     });
   } catch (error) {
     console.error("SendOTP controller message:", error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       status: false,
-      message: error.message || "Error sending OTP",
+      error: error.error || error.message || "Error sending OTP",
+      statusCode: error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -262,8 +265,8 @@ exports.verifyOTP = async (req, res) => {
 
     if (!response.status) {
       return res.status(StatusCodes.BAD_REQUEST).json({
-        status: false,
-        error: response.message,
+        status: response.status || false  ,
+        error: response.error || "Invalid or expired OTP",
         statusCode: StatusCodes.BAD_REQUEST,
       });
     }
@@ -293,6 +296,104 @@ exports.verifyOTP = async (req, res) => {
     });
   } catch (error) {
     console.error("VerifyOTP controller message:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      status: false,
+      error: "Server Error",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    });
+  }
+};
+
+// @desc    Forgot Password - Send reset link
+// @route   POST /api/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: false,
+        error: "Email is required",
+        statusCode: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    const result = await userService.forgotPasswordService(email);
+
+    if (!result.data) {
+      return res.status(result.statusCode).json({
+        status: false,
+        error: result.message || "Failed to process request",
+        statusCode: result.statusCode,
+      });
+    }
+
+    // Send reset email if user exists
+    if (result.data.resetToken) {
+      const APP_SCHEME = process.env.APP_SCHEME || "washub";
+      const resetLink = `${APP_SCHEME}://auth/setupPassword?token=${result.data.resetToken}`;
+
+      await emailService.sendEmail({
+        to: email,
+        subject: "Password Reset Request",
+        template: "passwordReset",
+        data: {
+          name: result.data.user.name,
+          resetLink: resetLink,
+        },
+      });
+    }
+
+    // Always return success to prevent email enumeration
+    res.status(StatusCodes.OK).json({
+      status: true,
+      data: { emailSent: true },
+      message: "If the email exists, a password reset link has been sent",
+      statusCode: StatusCodes.OK,
+    });
+  } catch (error) {
+    console.error("ForgotPassword controller error:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      status: false,
+      error: "Server Error",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    });
+  }
+};
+
+// @desc    Reset Password with token
+// @route   POST /api/auth/reset-password
+// @access  Public
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: false,
+        error: "Token and password are required",
+        statusCode: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    const result = await userService.resetPasswordService(token, password);
+
+    if (!result.status) {
+      return res.status(result.statusCode).json({
+        status: false,
+        error: result.error,
+        statusCode: result.statusCode,
+      });
+    }
+
+    res.status(result.statusCode).json({
+      status: true,
+      message: "Password reset successfully",
+      statusCode: result.statusCode,
+    });
+  } catch (error) {
+    console.error("ResetPassword controller error:", error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       status: false,
       error: "Server Error",

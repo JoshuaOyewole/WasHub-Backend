@@ -25,10 +25,12 @@ exports.createUserService = async (body) => {
 
     if (!validation.isValid) {
       return {
-        message: {
+        error:validation.errors[0].message,
+        data: {
           message: validation.errors[0].message,
           details: validation.errors,
         },
+        status:false,
         statusCode: StatusCodes.BAD_REQUEST,
       };
     }
@@ -40,7 +42,8 @@ exports.createUserService = async (body) => {
 
     if (existingUser) {
       return {
-        message: "User with this email already exists",
+        status:false,
+        error: "User with this email already exists",
         statusCode: StatusCodes.CONFLICT,
       };
     }
@@ -68,13 +71,16 @@ exports.createUserService = async (body) => {
     //};
     generateOTP;
     return {
+      status:true,
       data: response,
       statusCode: StatusCodes.CREATED,
     };
   } catch (error) {
     console.error("An unknown error occurred while creating user:", error);
     return {
-      message: {
+      status:false,
+      error:error.error || "Internal server error occurred while creating user",
+      data: {
         message: "Internal server error occurred while creating user",
         details: error.message,
       },
@@ -263,6 +269,153 @@ exports.checkEmailExistsService = async (email) => {
     console.error("Error checking email existence:", error);
     return {
       message: "Internal server error occurred while checking email",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    };
+  }
+};
+
+/**
+ * Initiate forgot password process
+ * @param {String} email - User email
+ * @returns {Promise<Object>} - Service response object
+ */
+exports.forgotPasswordService = async (email) => {
+  try {
+    if (!email) {
+      return {
+        message: "Email is required",
+        statusCode: StatusCodes.BAD_REQUEST,
+      };
+    }
+
+    // Check if user exists with this email
+    const user = await UserRepository.findOne({ email });
+
+    // For security, always return success even if user doesn't exist
+    // This prevents email enumeration attacks
+    if (!user) {
+      return {
+        data: {
+          emailSent: true,
+          email: email,
+        },
+        statusCode: StatusCodes.OK,
+      };
+    }
+
+    // Generate reset token
+    const resetToken = jwt.sign(
+      {
+        id: user._id,
+        email: user.email,
+        purpose: "password-reset",
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "10m", // Token expires in 10 minutes
+      },
+    );
+
+    return {
+      data: {
+        emailSent: true,
+        email: email,
+        resetToken: resetToken,
+        user: {
+          name: user.firstname,
+        },
+      },
+      statusCode: StatusCodes.OK,
+    };
+  } catch (error) {
+    console.error("Error in forgot password service:", error);
+    return {
+      message: "Internal server error occurred while processing request",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    };
+  }
+};
+
+/**
+ * Reset user password with token
+ * @param {String} token - Reset token
+ * @param {String} newPassword - New password
+ * @returns {Promise<Object>} - Service response object
+ */
+exports.resetPasswordService = async (token, newPassword) => {
+  try {
+    if (!token || !newPassword) {
+      return {
+        status: false,
+        error: "Token and new password are required",
+        statusCode: StatusCodes.BAD_REQUEST,
+      };
+    }
+
+    // Validate password length
+    if (newPassword.length < 6) {
+      return {
+        status: false,
+        error: "Password must be at least 6 characters long",
+        statusCode: StatusCodes.BAD_REQUEST,
+      };
+    }
+
+    // Verify token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      if (err.name === "TokenExpiredError") {
+        return {
+          status: false,
+          error: "Reset token has expired. Please request a new one.",
+          statusCode: StatusCodes.FORBIDDEN,
+        };
+      }
+      return {
+        status: false,
+        error: "Invalid reset token",
+        statusCode: StatusCodes.FORBIDDEN,
+      };
+    }
+
+    // Check token purpose
+    if (decoded.purpose !== "password-reset") {
+      return {
+        status: false,
+        error: "Invalid reset token",
+        statusCode: StatusCodes.FORBIDDEN,
+      };
+    }
+
+    // Find user
+    const user = await UserRepository.findById(decoded.id);
+
+    if (!user) {
+      return {
+        status: false,
+        error: "User not found",
+        statusCode: StatusCodes.NOT_FOUND,
+      };
+    }
+
+    // Update password (the User model's pre-save hook will hash it)
+    user.password = newPassword;
+    await user.save();
+
+    return {
+      status: true,
+      data: {
+        message: "Password reset successfully",
+      },
+      statusCode: StatusCodes.OK,
+    };
+  } catch (error) {
+    console.error("Error in reset password service:", error);
+    return {
+      status: false,
+      error: "Internal server error occurred while resetting password",
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
     };
   }

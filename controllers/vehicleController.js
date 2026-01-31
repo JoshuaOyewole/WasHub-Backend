@@ -26,6 +26,8 @@ exports.createVehicle = async (req, res) => {
 exports.getVehicles = async (req, res) => {
   try {
     const userId = req.user.id;
+
+
     const { inWishlist } = req.query;
     const result = await VehicleService.getVehiclesService(userId, inWishlist);
 

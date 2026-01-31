@@ -8,7 +8,7 @@ const mongoose = require("mongoose");
 async function verifyToken(tokenVaue) {
   try {
     const decoded = jwt.verify(tokenVaue, process.env.JWT_SECRET);
-    console.log("Token Decoded - User Found:", decoded);
+    //console.log("Token Decoded - User Found:", decoded);
     if (decoded) return decoded;
   } catch (error) {
     return null;
@@ -16,21 +16,22 @@ async function verifyToken(tokenVaue) {
 }
 
 async function rbac(token, accountType) {
-  const accountTypes = ["admin", "userOrAdmin", "customer"];
+  const accountTypes = ["admin", "userOrAdmin", "user"];
   if (!accountTypes.includes(accountType)) {
     console.error(
       `Invalid account type provided for authorization: ${accountType}`
     );
     return {
-      status: StatusCodes.INTERNAL_SERVER_ERROR,
-      message: "Internal server error",
+      status:false,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      error: "Internal server error",
     };
   }
 
   try {
     if (!token) {
       console.log("Token not provided for authorization.");
-      return { status: StatusCodes.UNAUTHORIZED, message: "Token not provided" };
+      return { status: false, statusCode: StatusCodes.UNAUTHORIZED, error: "Token not provided" };
     }
 
     const authorized = await verifyToken(token);
@@ -39,10 +40,10 @@ async function rbac(token, accountType) {
     let user = null;
 
     if (!authorized) {
-      console.log("Unable to verify token.");
       return {
-        status: StatusCodes.UNAUTHORIZED,
-        message: "Unauthorized, error verifying token",
+        status: false,
+        statusCode: StatusCodes.UNAUTHORIZED,
+        error: "Unauthorized, error verifying token",
       };
     }
 
@@ -51,19 +52,20 @@ async function rbac(token, accountType) {
         _id: authorized.id,
         role:
           accountType === "userOrAdmin"
-            ? { $in: ["admin", "customer"] }
+            ? { $in: ["admin", "user"] }
             : accountType,
       });
 
       if (!accountUser) {
         console.log(`Unauthorized ${accountType} access attempt detected.`);
         return {
-          status: StatusCodes.UNAUTHORIZED,
-          message: `"Access denied, not" ${
+          status: false,
+          statusCode: StatusCodes.UNAUTHORIZED,
+          error: `"Access denied, not" ${
             accountType == "admin"
               ? "an admin"
-              : accountType === "customer"
-              ? "a customer"
+              : accountType === "user"
+              ? "a user"
               : "a user or admin"
           }`,
         };
@@ -74,10 +76,11 @@ async function rbac(token, accountType) {
 
     return { status: true, user };
   } catch (error) {
-    console.error(`Error in authorize By AccountType: ${error.message}`);
+    console.error(`Error in authorize By AccountType: ${error.error}`);
     return {
-      status: StatusCodes.INTERNAL_SERVER_ERROR,
-      message: "Internal server error",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+      status: false,
+      error: "Internal server error",
     };
   }
 }
@@ -95,21 +98,19 @@ exports.getTokenFromHeaders = (req, res, next) => {
       // Set token from cookie
       token = req.cookies.token;
     }
-
-
     // Make sure token exists
     if (!token) {
       return res.status(StatusCodes.UNAUTHORIZED).json({
         status: false,
         statusCode: StatusCodes.UNAUTHORIZED,
-        message: "Access token is required.",
+        error: "Access token is required.",
       });
     }
     //add the token to req object
     req.token = token;
     next();
   } catch (error) {
-    throw new Error(`Error in protect middleware: ${error.message}`);
+    throw new Error(`Error in protect middleware: ${error.error}`);
   }
 };
 
@@ -118,12 +119,12 @@ exports.adminOnly = async (req, res, next) => {
 
   const authorized = await rbac(token, "admin");
 
-  if (authorized.status !== true) {
+  if (!authorized.status) {
     console.log("Unauthorized admin access attempt detected.:", authorized);
     return res.status(StatusCodes.UNAUTHORIZED).json({
       status: false,
       statusCode: StatusCodes.UNAUTHORIZED,
-      message: authorized.error,
+      error: authorized.error,
     });
   }
   req.user = { id: new mongoose.Types.ObjectId(authorized.user._id) };
@@ -135,12 +136,12 @@ exports.userOrAdmin = async (req, res, next) => {
 
   const authorized = await rbac(token, "userOrAdmin");
 
-  if (authorized.status !== true) {
+  if (!authorized.status) {
   
     return res.status(StatusCodes.UNAUTHORIZED).json({
       status: false,
-      statusCode: authorized.status || StatusCodes.UNAUTHORIZED,
-      message: authorized.error || authorized.message || "Unauthorized access",
+      statusCode: authorized.statusCode || StatusCodes.UNAUTHORIZED,
+      error: authorized.error || authorized.message || "Unauthorized access",
     });
   }
   req.user = { id: new mongoose.Types.ObjectId(authorized.user._id) };
@@ -149,14 +150,15 @@ exports.userOrAdmin = async (req, res, next) => {
 exports.userOnly = async (req, res, next) => {
   const token = req.token;
 
-  const authorized = await rbac(token, "customer");
+  const authorized = await rbac(token, "user");
 
-  if (authorized.status !== true) {
+
+  if (!authorized.status) {
     console.error("Unauthorized user access attempt detected.", authorized);
     return res.status(StatusCodes.UNAUTHORIZED).json({
       status: false,
       statusCode: StatusCodes.UNAUTHORIZED,
-      message: authorized.error || authorized.message || "Unauthorized access",
+      error: authorized.error || authorized.message || "Unauthorized access",
     });
   }
   req.user = { id: new mongoose.Types.ObjectId(authorized.user._id) };

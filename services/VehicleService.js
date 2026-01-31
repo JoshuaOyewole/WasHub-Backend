@@ -89,7 +89,6 @@ exports.getVehicleByIdService = async (id, userId) => {
       };
     }
 
-
     if (!vehicle.userId.equals(userId)) {
       return {
         error: "Unauthorized to access this vehicle",

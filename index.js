@@ -3,6 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 require("dotenv").config();
 const app = express();
+//const ngrok = require("@ngrok/ngrok");
 
 // Database connection
 const connectDB = require("./database/db");
@@ -30,5 +31,11 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
- // console.log(`http://localhost:${PORT}`);
 });
+
+// Get your endpoint online
+/* 
+ ngrok.connect({ addr: PORT, authtoken_from_env: true })
+	.then(listener => console.log(`Ingress established at: ${listener.url()}`));
+ // console.log(`http://localhost:${PORT}`);
+ */

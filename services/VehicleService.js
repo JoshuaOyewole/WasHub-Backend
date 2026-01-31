@@ -125,7 +125,7 @@ exports.updateVehicleService = async (id, updateData, userId) => {
       };
     }
 
-    if (vehicle.userId.toString() !== userId) {
+    if (!vehicle.userId.equals(userId)) {
       return {
         error: "Unauthorized to update this vehicle",
         status: false,
@@ -161,7 +161,7 @@ exports.deleteVehicleService = async (id, userId) => {
       };
     }
 
-    if (vehicle.userId.toString() !== userId) {
+    if (!vehicle.userId.equals(userId)) {
       return {
         error: "Unauthorized to delete this vehicle",
         status: false,
@@ -196,7 +196,7 @@ exports.addToWashService = async (id, userId) => {
       };
     }
 
-    if (vehicle.userId.toString() !== userId) {
+    if (!vehicle.userId.equals(userId)) {
       return {
         error: "Unauthorized to modify this vehicle",
         status: false,
@@ -244,7 +244,7 @@ exports.removeFromWashService = async (id, userId) => {
       };
     }
 
-    if (vehicle.userId.toString() !== userId) {
+    if (!vehicle.userId.equals(userId)) {
       return {
         error: "Unauthorized to modify this vehicle",
         status: false,

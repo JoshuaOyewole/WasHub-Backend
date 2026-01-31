@@ -113,7 +113,7 @@ exports.getWashRequestByIdService = async (requestId, userId) => {
     }
 
     // Verify the request belongs to the user
-    if (washRequest.userId.toString() !== userId) {
+    if (!washRequest.userId.equals(userId)) {
       return {
         error: { message: "Unauthorized to access this wash request" },
         statusCode: StatusCodes.FORBIDDEN,
@@ -156,7 +156,7 @@ exports.updateWashRequestService = async (requestId, updateData, userId) => {
     }
 
     // Verify the request belongs to the user
-    if (washRequest.userId.toString() !== userId) {
+    if (!washRequest.userId.equals(userId)) {
       return {
         error: { message: "Unauthorized to update this wash request" },
         statusCode: StatusCodes.FORBIDDEN,
@@ -203,7 +203,7 @@ exports.deleteWashRequestService = async (requestId, userId) => {
     }
 
     // Verify the request belongs to the user
-    if (washRequest.userId.toString() !== userId) {
+    if (!washRequest.userId.equals(userId)) {
       return {
         error: { message: "Unauthorized to delete this wash request" },
         statusCode: StatusCodes.FORBIDDEN,

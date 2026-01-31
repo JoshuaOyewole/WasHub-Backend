@@ -4,6 +4,47 @@ const emailService = require("../services/EmailService");
 const OTPService = require("../services/OTPService");
 const { generateOTPValidator } = require("../validators/OTPValidator");
 const jwt = require("jsonwebtoken");
+
+// @desc    Check if email exists
+// @route   POST /api/auth/check-email
+// @access  Public
+exports.checkEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: false,
+        error: "Email is required",
+        statusCode: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    const result = await userService.checkEmailExistsService(email);
+
+    if (result.data) {
+      return res.status(result.statusCode).json({
+        status: true,
+        data: result.data,
+        statusCode: result.statusCode,
+      });
+    }
+
+    res.status(result.statusCode).json({
+      status: false,
+      error: result.message,
+      statusCode: result.statusCode,
+    });
+  } catch (error) {
+    console.error("CheckEmail controller error:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      status: false,
+      error: "Server Error",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    });
+  }
+};
+
 // @desc    Register user
 // @route   POST /api/auth/register
 // @access  Public
@@ -14,7 +55,7 @@ exports.register = async (req, res) => {
     if (!token) {
       return res.status(StatusCodes.FORBIDDEN).json({
         status: false,
-        message: "Verification token is required",
+        error: "Verification token is required",
         statusCode: StatusCodes.FORBIDDEN,
       });
     }
@@ -24,7 +65,7 @@ exports.register = async (req, res) => {
     if (decoded.purpose !== "registration") {
       return res.status(StatusCodes.FORBIDDEN).json({
         status: false,
-        message: "Invalid verification token",
+        error: "Invalid verification token",
         statusCode: StatusCodes.FORBIDDEN,
       });
     }
@@ -34,7 +75,7 @@ exports.register = async (req, res) => {
     if (result.error) {
       return res.status(result.statusCode).json({
         status: false,
-        message: result.error.message || result.error,
+        error: result.error.message || result.error,
         errors: result.error.details || null,
         statusCode: result.statusCode,
       });
@@ -50,13 +91,15 @@ exports.register = async (req, res) => {
     if (error.name === "TokenExpiredError") {
       return res.status(StatusCodes.FORBIDDEN).json({
         status: false,
-        message: error.message,
+        error: error.message,
+        statusCode: StatusCodes.FORBIDDEN,
       });
     }
     console.error("Register controller message:", JSON.stringify(error));
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       status: false,
-      message: "Server Error",
+      error: "Server Error",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -130,7 +173,6 @@ exports.getMe = async (req, res) => {
     // Call service to fetch user details
     const result = await userService.getUserByIdService(req.user.id);
 
-   
     // Handle errors from service
     if (!result.data) {
       return res.status(result.statusCode).json({
@@ -212,7 +254,8 @@ exports.verifyOTP = async (req, res) => {
     if (!otp || !email) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         status: false,
-        message: "email and otp are required",
+        error: "email and otp are required",
+        statusCode: StatusCodes.BAD_REQUEST,
       });
     }
     const response = await OTPService.verifyOTP({ email, otp });
@@ -220,7 +263,8 @@ exports.verifyOTP = async (req, res) => {
     if (!response.status) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         status: false,
-        message: response.message,
+        error: response.message,
+        statusCode: StatusCodes.BAD_REQUEST,
       });
     }
 
@@ -231,7 +275,7 @@ exports.verifyOTP = async (req, res) => {
         return {
           status: true,
           statusCode: StatusCodes.BAD_REQUEST,
-          message: "error deleting OTP",
+          error: "error deleting OTP",
         };
       }
     }
@@ -243,15 +287,16 @@ exports.verifyOTP = async (req, res) => {
 
     return res.status(StatusCodes.OK).json({
       status: true,
+      data: { verificationToken },
       statusCode: StatusCodes.OK,
       message: "OTP verified successfully",
-      verificationToken,
     });
   } catch (error) {
     console.error("VerifyOTP controller message:", error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       status: false,
-      message: "Server Error",
+      error: "Server Error",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
     });
   }
 };

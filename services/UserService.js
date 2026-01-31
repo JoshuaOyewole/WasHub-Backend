@@ -235,6 +235,39 @@ exports.getUserByIdService = async (userId) => {
   }
 };
 
+/**
+ * Check if email already exists
+ * @param {String} email - Email to check
+ * @returns {Promise<Object>} - Service response object
+ */
+exports.checkEmailExistsService = async (email) => {
+  try {
+    if (!email) {
+      return {
+        message: "Email is required",
+        statusCode: StatusCodes.BAD_REQUEST,
+      };
+    }
+
+    // Check if user exists with this email
+    const existingUser = await UserRepository.findOne({ email });
+
+    return {
+      data: {
+        exists: !!existingUser,
+        email: email,
+      },
+      statusCode: StatusCodes.OK,
+    };
+  } catch (error) {
+    console.error("Error checking email existence:", error);
+    return {
+      message: "Internal server error occurred while checking email",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    };
+  }
+};
+
 module.exports = {
   ...exports,
 };

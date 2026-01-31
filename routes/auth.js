@@ -8,6 +8,7 @@ const {
   //logout,
   sendOTP,
   verifyOTP,
+  checkEmail,
 } = require("../controllers/authController");
 const { getTokenFromHeaders, userOrAdmin } = require("../middlewares/auth");
 
@@ -18,6 +19,7 @@ router.post("/login", login);
 //router.post("/logout", protect, logout);
 router.post("/send-otp", sendOTP);
 router.post("/verify-otp", verifyOTP);
+router.post("/check-email", checkEmail);
 
 // Protected route - Get current user
 router.get("/me", getTokenFromHeaders, userOrAdmin, getMe);

@@ -35,7 +35,7 @@ const createUserValidator = async (body) => {
     /*  dob: Joi.date().optional().messages({
       "date.base": "Date of Birth must be a valid date",
     }),
-    profileImage: Joi.string().uri().optional().messages({
+    profile_picture: Joi.string().uri().optional().messages({
       "string.uri": "Profile Image must be a valid URL",
     }), */
     password: Joi.string()

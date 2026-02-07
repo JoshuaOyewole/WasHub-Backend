@@ -32,18 +32,59 @@ const washRequestSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "ongoing", "completed", "cancelled"],
-      default: "pending",
+      enum: [
+        "scheduled",
+        "order_received",
+        "vehicle_checked",
+        "in_progress",
+        "drying_finishing",
+        "ready_for_pickup",
+        "completed",
+        "cancelled",
+      ],
+      default: "scheduled",
     },
+    washCode: {
+      type: String,
+      unique: true,
+      required: true,
+      length: 5,
+    },
+    statusTimeline: [
+      {
+        status: {
+          type: String,
+          required: true,
+        },
+        timestamp: {
+          type: Date,
+          required: true,
+          default: Date.now,
+        },
+        updatedBy: {
+          type: String,
+          enum: ["user", "outlet", "system"],
+          default: "system",
+        },
+      },
+    ],
     currentStep: {
       type: Number,
       default: 0,
       min: 0,
-      max: 4,
+      max: 6,
     },
     steps: {
       type: [String],
-      default: ["Received", "Washing", "Finishing", "Ready"],
+      default: [
+        "Wash Booked Successfully",
+        "Wash Order Received",
+        "Vehicle Checked",
+        "Wash in Progress",
+        "Drying & Finishing",
+        "Ready for Pickup",
+        "Wash Completed",
+      ],
     },
     vehicleInfo: {
       vehicleType: {
@@ -90,6 +131,21 @@ const washRequestSchema = new mongoose.Schema(
     notes: {
       type: String,
     },
+    userRating: {
+      type: Number,
+      min: 1,
+      max: 5,
+      default: null,
+    },
+    userReview: {
+      type: String,
+      maxlength: 500,
+      default: null,
+    },
+    reviewedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -100,8 +156,8 @@ const washRequestSchema = new mongoose.Schema(
 washRequestSchema.index({ userId: 1, status: 1 });
 washRequestSchema.index({ status: 1, createdAt: -1 });
 
-// Update completedAt when status changes to completed
-washRequestSchema.pre("save", function (next) {
+// Update completedAt when status changes to completed (for .save() and .create())
+washRequestSchema.pre("save", async function () {
   if (this.isModified("status")) {
     if (this.status === "completed" && !this.completedAt) {
       this.completedAt = new Date();
@@ -110,7 +166,26 @@ washRequestSchema.pre("save", function (next) {
       this.cancelledAt = new Date();
     }
   }
-  next();
+});
+
+// Handle status changes for findOneAndUpdate, findByIdAndUpdate
+washRequestSchema.pre("findOneAndUpdate", async function () {
+  const update = this.getUpdate();
+  if (update.$set && update.$set.status) {
+    if (update.$set.status === "completed" && !update.$set.completedAt) {
+      update.$set.completedAt = new Date();
+    }
+    if (update.$set.status === "cancelled" && !update.$set.cancelledAt) {
+      update.$set.cancelledAt = new Date();
+    }
+  } else if (update.status) {
+    if (update.status === "completed" && !update.completedAt) {
+      update.completedAt = new Date();
+    }
+    if (update.status === "cancelled" && !update.cancelledAt) {
+      update.cancelledAt = new Date();
+    }
+  }
 });
 
 module.exports = mongoose.model("WashRequest", washRequestSchema);

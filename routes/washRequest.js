@@ -5,27 +5,40 @@ const {
   getWashRequests,
   getWashRequestById,
   updateWashRequest,
+  updateWashRequestStatus,
   deleteWashRequest,
+  verifyWashCode,
+  updateWashStatusByCode,
+  submitWashReview,
 } = require("../controllers/washRequestController");
-const { getTokenFromHeaders, userOrAdmin } = require("../middlewares/auth");
+const { getTokenFromHeaders, userOrOutletOrAdmin, outletOnly, userOnly } = require("../middlewares/auth");
 
 // All routes require authentication
 router.use(getTokenFromHeaders);
-router.use(userOrAdmin);
 
 // Create a new wash request
-router.post("/", createWashRequest);
-
+router.post("/", userOnly,createWashRequest);
 // Get all wash requests (with optional status filter)
-router.get("/", getWashRequests);
-
+router.get("/", userOrOutletOrAdmin, getWashRequests);
 // Get a single wash request by ID
-router.get("/:id", getWashRequestById);
+router.get("/:id", userOrOutletOrAdmin, getWashRequestById);
+
+// Submit a review for a completed wash (user only)
+router.patch("/:id/review", userOnly, submitWashReview);
+
+// Outlet/Agent routes
+router.post("/verify-code", outletOnly, verifyWashCode);
+router.patch("/update-status", outletOnly, updateWashStatusByCode);
+
+
+
+// Update wash request status (for outlets/admins)
+router.patch("/:id/status", outletOnly, updateWashRequestStatus);
 
 // Update a wash request
-router.patch("/:id", updateWashRequest);
+router.patch("/:id",outletOnly, updateWashRequest);
 
 // Delete/Cancel a wash request
-router.delete("/:id", deleteWashRequest);
+router.delete("/:id", userOrOutletOrAdmin, deleteWashRequest);
 
 module.exports = router;

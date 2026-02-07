@@ -9,10 +9,10 @@ const {
   addToWash,
   removeFromWash,
 } = require("../controllers/vehicleController");
-const { getTokenFromHeaders, userOrAdmin } = require("../middlewares/auth");
+const { getTokenFromHeaders, userOnly } = require("../middlewares/auth");
 
 router.use(getTokenFromHeaders);
-router.use(userOrAdmin);
+router.use(userOnly);
 
 router.post("/", createVehicle);
 router.get("/", getVehicles);

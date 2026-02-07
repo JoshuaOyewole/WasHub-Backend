@@ -3,5 +3,9 @@
 /dist
 /prompts
 /seeds
+/scripts 
+# Outlet credentials - DO NOT COMMIT
+OUTLET_CREDENTIALS.md
 
+# Other markdown files
 *.md

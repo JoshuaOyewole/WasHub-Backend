@@ -22,6 +22,16 @@ const WashRequestRepository = {
     return await WashRequest.findById(id);
   },
 
+  // Find wash request by wash code
+  async findByWashCode(washCode) {
+    return await WashRequest.findOne({ washCode });
+  },
+
+  // Find wash requests by outlet ID
+  async findByOutletId(outletId) {
+    return await WashRequest.find({ outletId, status: "completed" });
+  },
+
   // Find multiple wash requests by query
   async find(query = {}, options = {}) {
     const { limit, sort, select, populate } = options;
@@ -57,10 +67,22 @@ const WashRequestRepository = {
   async findWithStatusCounts(userId) {
     const requests = await WashRequest.find({ userId }).sort({ createdAt: -1 });
 
+    // Scheduled = scheduled status
+    // Ongoing = order_received, vehicle_checked, in_progress, drying_finishing, ready_for_pickup
+    // Completed = completed status
+
+    const ongoingStatuses = [
+      "order_received",
+      "vehicle_checked",
+      "in_progress",
+      "drying_finishing",
+      "ready_for_pickup",
+    ];
+
     const meta = {
       total: requests.length,
-      pending: requests.filter((r) => r.status === "pending").length,
-      ongoing: requests.filter((r) => r.status === "ongoing").length,
+      pending: requests.filter((r) => r.status === "scheduled").length,
+      ongoing: requests.filter((r) => ongoingStatuses.includes(r.status)).length,
       completed: requests.filter((r) => r.status === "completed").length,
     };
 

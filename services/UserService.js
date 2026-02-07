@@ -1,17 +1,20 @@
 "use strict";
 const { StatusCodes } = require("http-status-codes");
 const UserRepository = require("../repositories/UserRepository");
+const DeletedAccountRepository = require("../repositories/DeletedAccountRepository");
 const {
   loginUserValidator,
   createUserValidator,
 } = require("../validators/AuthValidator");
 const jwt = require("jsonwebtoken");
-const { generateOTP } = require("../utils/helpers");
+//const { generateOTP } = require("../utils/helpers");
+const { contentSecurityPolicy } = require("helmet");
 
 /**
  * User Service - Business logic layer
  * Handles user-related business operations
  */
+
 
 /**
  * Create a new user
@@ -25,12 +28,12 @@ exports.createUserService = async (body) => {
 
     if (!validation.isValid) {
       return {
-        error:validation.errors[0].message,
+        error: validation.errors[0].message,
         data: {
           message: validation.errors[0].message,
           details: validation.errors,
         },
-        status:false,
+        status: false,
         statusCode: StatusCodes.BAD_REQUEST,
       };
     }
@@ -42,7 +45,7 @@ exports.createUserService = async (body) => {
 
     if (existingUser) {
       return {
-        status:false,
+        status: false,
         error: "User with this email already exists",
         statusCode: StatusCodes.CONFLICT,
       };
@@ -56,6 +59,8 @@ exports.createUserService = async (body) => {
       email: validation.data.email,
       password: validation.data.password,
       role: validation.data.role,
+      profileImage:
+        "https://res.cloudinary.com/dic6uwf7a/image/upload/v1770476527/avatar_vfyax6.png",
     };
 
     const response = await UserRepository.create(userData);
@@ -69,17 +74,18 @@ exports.createUserService = async (body) => {
     //role: user.role,
     //createdAt: user.createdAt,
     //};
-    generateOTP;
+    // generateOTP;
     return {
-      status:true,
+      status: true,
       data: response,
       statusCode: StatusCodes.CREATED,
     };
   } catch (error) {
     console.error("An unknown error occurred while creating user:", error);
     return {
-      status:false,
-      error:error.error || "Internal server error occurred while creating user",
+      status: false,
+      error:
+        error.error || "Internal server error occurred while creating user",
       data: {
         message: "Internal server error occurred while creating user",
         details: error.message,
@@ -140,13 +146,11 @@ exports.loginUserService = async (body) => {
     // Prepare user response data
     const userResponse = {
       userId: user._id,
-      name: user.firstname,
+      name: `${user.firstname} ${user.lastname}`,
       email: user.email,
       role: user.role,
-      profile_picture: user?.profile_picture ?? null,
+      profileImage: user?.profileImage ?? null,
     };
-
-  
 
     return {
       data: {
@@ -179,7 +183,7 @@ const generateToken = (user) => {
       id: user._id || user.id,
       role: user.role,
       email: user.email,
-      name: user.name,
+      name: `${user.firstname} ${user.lastname}`,
     },
     process.env.JWT_SECRET,
     {
@@ -215,7 +219,8 @@ exports.getUserByIdService = async (userId) => {
       email: user.email,
       role: user.role,
       phoneNumber: user.phoneNumber,
-      profile_picture: user?.profile_picture,
+      profileImage: user?.profileImage ?? null,
+      dob: user?.dob ?? null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
@@ -236,6 +241,142 @@ exports.getUserByIdService = async (userId) => {
     console.error("Error fetching user by ID:", error);
     return {
       message: "Internal server error occurred while fetching user",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    };
+  }
+};
+
+/**
+ * Update user profile
+ * @param {String} userId - User ID
+ * @param {Object} body - Update fields
+ * @returns {Promise<Object>} - Service response object
+ */
+exports.updateUserProfileService = async (userId, body) => {
+  try {
+    if (!userId) {
+      return {
+        status: false,
+        message: "User ID is required",
+        statusCode: StatusCodes.BAD_REQUEST,
+      };
+    }
+
+    const user = await UserRepository.findById(userId);
+
+    if (!user) {
+      return {
+        status: false,
+        message: "User not found",
+        statusCode: StatusCodes.NOT_FOUND,
+      };
+    }
+
+    if (body.email && body.email !== user.email) {
+      const existingUser = await UserRepository.findOne({ email: body.email });
+      if (existingUser) {
+        return {
+          status: false,
+          message: "Email already in use",
+          statusCode: StatusCodes.CONFLICT,
+        };
+      }
+    }
+
+    const updateData = {
+      firstname: body.firstname ?? user.firstname,
+      lastname: body.lastname ?? user.lastname,
+      phoneNumber: body.phoneNumber ?? user.phoneNumber,
+      email: body.email ?? user.email,
+      profileImage: body.profileImage ?? user.profileImage,
+    };
+
+    if (body.dob) {
+      const parsed = new Date(body.dob);
+      if (!Number.isNaN(parsed.getTime())) {
+        updateData.dob = parsed;
+      }
+    }
+
+    const updatedUser = await UserRepository.updateById(userId, updateData);
+
+    return {
+      status: true,
+      data: {
+        user: {
+          userId: updatedUser._id,
+          name: `${updatedUser.firstname} ${updatedUser.lastname}`,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          phoneNumber: updatedUser.phoneNumber,
+          profileImage: updatedUser?.profileImage ?? null,
+          dob: updatedUser?.dob ?? null,
+        },
+      },
+      statusCode: StatusCodes.OK,
+    };
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    return {
+      status: false,
+      message: "Internal server error occurred while updating profile",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    };
+  }
+};
+
+/**
+ * Delete user account and store deleted account info
+ * @param {String} userId - User ID
+ * @param {String} reason - Optional delete reason
+ * @returns {Promise<Object>} - Service response object
+ */
+exports.deleteAccountService = async (userId, reason) => {
+  try {
+    if (!userId) {
+      return {
+        status: false,
+        message: "User ID is required",
+        statusCode: StatusCodes.BAD_REQUEST,
+      };
+    }
+
+    const user = await UserRepository.findById(userId);
+
+    if (!user) {
+      return {
+        status: false,
+        message: "User not found",
+        statusCode: StatusCodes.NOT_FOUND,
+      };
+    }
+
+    await DeletedAccountRepository.create({
+      userId: user._id,
+      firstname: user.firstname,
+      lastname: user.lastname,
+      phoneNumber: user.phoneNumber,
+      email: user.email,
+      dob: user.dob,
+      profileImage: user.profileImage,
+      role: user.role,
+      reason: reason || "",
+      deletedAt: new Date(),
+      createdAt: user.createdAt,
+    });
+
+    await UserRepository.deleteById(userId);
+
+    return {
+      status: true,
+      message: "Account deleted successfully",
+      statusCode: StatusCodes.OK,
+    };
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    return {
+      status: false,
+      message: "Internal server error occurred while deleting account",
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
     };
   }
@@ -323,6 +464,7 @@ exports.forgotPasswordService = async (email) => {
         resetToken: resetToken,
         user: {
           name: user.firstname,
+          profileImage: user?.profileImage ?? null,
         },
       },
       statusCode: StatusCodes.OK,
@@ -416,6 +558,81 @@ exports.resetPasswordService = async (token, newPassword) => {
     return {
       status: false,
       error: "Internal server error occurred while resetting password",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    };
+  }
+};
+
+/**
+ * Change password (authenticated user)
+ * @param {String} userId - User ID
+ * @param {String} currentPassword - Current password
+ * @param {String} newPassword - New password
+ * @returns {Promise<Object>} - Service response object
+ */
+exports.changePasswordService = async (
+  userId,
+  currentPassword,
+  newPassword,
+) => {
+  try {
+    if (!userId || !currentPassword || !newPassword) {
+      return {
+        status: false,
+        error: "Current and new password are required",
+        statusCode: StatusCodes.BAD_REQUEST,
+      };
+    }
+
+    if (newPassword.length < 6) {
+      return {
+        status: false,
+        error: "Password must be at least 6 characters long",
+        statusCode: StatusCodes.BAD_REQUEST,
+      };
+    }
+
+    const user = await UserRepository.findByIdWithPassword(userId);
+
+    if (!user) {
+      return {
+        status: false,
+        error: "User not found",
+        statusCode: StatusCodes.NOT_FOUND,
+      };
+    }
+
+    const isPasswordValid = await user.matchPassword(currentPassword);
+
+    if (!isPasswordValid) {
+      return {
+        status: false,
+        error: "Current password is incorrect",
+        statusCode: StatusCodes.UNAUTHORIZED,
+      };
+    }
+
+    if (currentPassword === newPassword) {
+      return {
+        status: false,
+        error: "New password cannot be the same as current password",
+        statusCode: StatusCodes.BAD_REQUEST,
+      };
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    return {
+      status: true,
+      message: "Password changed successfully",
+      statusCode: StatusCodes.OK,
+    };
+  } catch (error) {
+    console.error("Error changing password:", error);
+    return {
+      status: false,
+      error: "Internal server error occurred while changing password",
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
     };
   }

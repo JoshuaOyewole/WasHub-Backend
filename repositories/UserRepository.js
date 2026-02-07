@@ -20,6 +20,10 @@ const UserRepository = {
   async findById(id) {
     return await User.findById(id);
   },
+  //Find user by ID with password
+  async findByIdWithPassword(id) {
+    return await User.findById(id).select("+password");
+  },
 
   // Find multiple users by query
   async find(query = {}, options = {}) {
@@ -38,6 +42,10 @@ const UserRepository = {
       new: true,
       runValidators: true,
     });
+  },
+  // Delete user by ID
+  async deleteById(id) {
+    return await User.findByIdAndDelete(id);
   },
 };
 

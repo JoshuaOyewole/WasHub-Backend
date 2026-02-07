@@ -18,7 +18,7 @@ exports.createWashRequest = async (req, res) => {
       });
     }
 
-    const vehicle   = await Vehicle.findById(vehicleId);
+    const vehicle = await Vehicle.findById(vehicleId);
 
     if (!vehicle) {
       return res.status(StatusCodes.NOT_FOUND).json({
@@ -164,6 +164,50 @@ exports.updateWashRequest = async (req, res) => {
   }
 };
 
+// @desc    Update wash request status (for outlets/admins)
+// @route   PATCH /api/wash-requests/:id/status
+// @access  Private (outlet/admin)
+exports.updateWashRequestStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    console.log("Updating wash request status:", { id, status });
+    if (!status) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        error: "Status is required",
+      });
+    }
+
+    const result = await WashRequestService.updateWashRequestStatusService(
+      id,
+      status,
+    );
+
+    if (result.error) {
+      return res.status(result.statusCode).json({
+        success: false,
+        message: result.error.message || result.error,
+      });
+    }
+
+    res.status(result.statusCode).json({
+      success: true,
+      data: result.data,
+      message: result.message,
+    });
+  } catch (error) {
+    console.error("Update wash request status error:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 // @desc    Cancel/Delete a wash request
 // @route   DELETE /api/wash-requests/:id
 // @access  Private
@@ -191,6 +235,136 @@ exports.deleteWashRequest = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete wash request error:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Verify wash code (for outlets/agents)
+// @route   POST /api/wash-requests/verify-code
+// @access  Private (Outlet/Agent)
+exports.verifyWashCode = async (req, res) => {
+  try {
+    const { washCode } = req.body;
+    console.log("Verifying wash code:", washCode);
+    if (!washCode) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        error: "Wash code is required",
+      });
+    }
+
+    const result = await WashRequestService.verifyWashCodeService(washCode);
+
+    if (result.error) {
+      return res.status(result.statusCode).json({
+        success: false,
+        message: result.error.message || result.error,
+      });
+    }
+
+    res.status(result.statusCode).json({
+      success: true,
+      data: result.data,
+      message: result.message,
+    });
+  } catch (error) {
+    console.error("Verify wash code error:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Update wash status by code (for outlets/agents)
+// @route   PATCH /api/wash-requests/update-status
+// @access  Private (Outlet/Agent)
+exports.updateWashStatusByCode = async (req, res) => {
+  try {
+    const { washCode, status } = req.body;
+    const outletId = req.user.id || req.body.outletId; // Assuming outlet info is in user object
+
+  
+    if (!washCode || !status) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        error: "Wash code and status are required",
+      });
+    }
+
+    const result = await WashRequestService.updateWashStatusByCodeService(
+      washCode,
+      status,
+      outletId,
+    );
+
+    if (result.error) {
+      return res.status(result.statusCode).json({
+        success: false,
+        message: result.error.message || result.error,
+      });
+    }
+
+    res.status(result.statusCode).json({
+      success: true,
+      data: result.data,
+      message: result.message,
+    });
+  } catch (error) {
+    console.error("Update wash status by code error:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Submit a review for a completed wash
+// @route   PATCH /api/wash-requests/:id/review
+// @access  Private (User only)
+exports.submitWashReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { rating, review } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        statusCode: StatusCodes.BAD_REQUEST,
+        error: "Rating must be between 1 and 5",
+      });
+    }
+
+    const result = await WashRequestService.submitWashReviewService(
+      id,
+      userId,
+      rating,
+      review,
+    );
+
+    if (result.error) {
+      return res.status(result.statusCode).json({
+        success: false,
+        message: result.error.message || result.error,
+      });
+    }
+
+    res.status(result.statusCode).json({
+      success: true,
+      data: result.data,
+      message: result.message,
+    });
+  } catch (error) {
+    console.error("Submit wash review error:", error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Internal server error",

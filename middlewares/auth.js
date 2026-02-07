@@ -2,44 +2,59 @@ const jwt = require("jsonwebtoken");
 const { StatusCodes } = require("http-status-codes");
 const User = require("../models/User");
 const mongoose = require("mongoose");
+const Outlet = require("../models/Outlet");
 
-// Protect routes
+// In-memory cache for user/outlet data (TTL: 60 seconds)
+const authCache = new Map();
+const CACHE_TTL = 60000; // 60 seconds
 
-async function verifyToken(tokenVaue) {
+// Cache cleanup - runs every 2 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of authCache.entries()) {
+    if (now - value.timestamp > CACHE_TTL) {
+      authCache.delete(key);
+    }
+  }
+}, 120000);
+
+// Optimized token verification with caching
+function verifyToken(tokenValue) {
   try {
-    const decoded = jwt.verify(tokenVaue, process.env.JWT_SECRET);
-    //console.log("Token Decoded - User Found:", decoded);
-    if (decoded) return decoded;
+    const decoded = jwt.verify(tokenValue, process.env.JWT_SECRET);
+    return decoded || null;
   } catch (error) {
     return null;
   }
 }
 
-async function rbac(token, accountType) {
-  const accountTypes = ["admin", "userOrAdmin", "user"];
-  if (!accountTypes.includes(accountType)) {
-    console.error(
-      `Invalid account type provided for authorization: ${accountType}`
-    );
+// Optimized RBAC with caching and lean queries
+async function rbac(token, accountType, decodedToken = null) {
+  const VALID_ACCOUNT_TYPES = ["admin", "userOrOutletOrAdmin", "user", "outlet"];
+  
+  // Early validation
+  if (!VALID_ACCOUNT_TYPES.includes(accountType)) {
+    console.error(`Invalid account type: ${accountType}`);
     return {
-      status:false,
+      status: false,
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
       error: "Internal server error",
     };
   }
 
+  if (!token) {
+    return {
+      status: false,
+      statusCode: StatusCodes.UNAUTHORIZED,
+      error: "Token not provided",
+    };
+  }
+
   try {
-    if (!token) {
-      console.log("Token not provided for authorization.");
-      return { status: false, statusCode: StatusCodes.UNAUTHORIZED, error: "Token not provided" };
-    }
+    // Use provided decoded token or decode new one
+    const authorized = decodedToken || verifyToken(token);
 
-    const authorized = await verifyToken(token);
-  
-    //let user = await fetchUser(authorized.id);
-    let user = null;
-
-    if (!authorized) {
+    if (!authorized || !authorized.id) {
       return {
         status: false,
         statusCode: StatusCodes.UNAUTHORIZED,
@@ -47,36 +62,80 @@ async function rbac(token, accountType) {
       };
     }
 
-    if (accountType) {
-      const accountUser = await User.findOne({
-        _id: authorized.id,
-        role:
-          accountType === "userOrAdmin"
-            ? { $in: ["admin", "user"] }
-            : accountType,
-      });
-
-      if (!accountUser) {
-        console.log(`Unauthorized ${accountType} access attempt detected.`);
-        return {
-          status: false,
-          statusCode: StatusCodes.UNAUTHORIZED,
-          error: `"Access denied, not" ${
-            accountType == "admin"
-              ? "an admin"
-              : accountType === "user"
-              ? "a user"
-              : "a user or admin"
-          }`,
-        };
-      }
-
-      user = accountUser;
+    // Check cache first
+    const cacheKey = `${authorized.id}_${accountType}`;
+    const cached = authCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+      return { status: true, user: cached.user };
     }
 
-    return { status: true, user };
+    let accountUser = null;
+
+    // Optimized database queries with lean() for performance
+    if (accountType === "outlet") {
+      accountUser = await Outlet.findOne({
+        _id: authorized.id,
+        role: "outlet",
+      })
+        .select("_id email role name location")
+        .lean()
+        .exec();
+    } else if (accountType === "userOrOutletOrAdmin") {
+      // Try User collection first (most common case)
+      accountUser = await User.findOne({
+        _id: authorized.id,
+        role: { $in: ["admin", "user"] },
+      })
+        .select("_id email role firstName lastName")
+        .lean()
+        .exec();
+
+      // Fallback to Outlet collection if not found in User
+      if (!accountUser) {
+        accountUser = await Outlet.findOne({
+          _id: authorized.id,
+          role: "outlet",
+        })
+          .select("_id email role name location")
+          .lean()
+          .exec();
+      }
+    } else {
+      // Admin or User lookup
+      accountUser = await User.findOne({
+        _id: authorized.id,
+        role: accountType,
+      })
+        .select("_id email role firstName lastName")
+        .lean()
+        .exec();
+    }
+
+    if (!accountUser) {
+      return {
+        status: false,
+        statusCode: StatusCodes.UNAUTHORIZED,
+        error: `Access denied, not ${
+          accountType === "admin"
+            ? "an admin"
+            : accountType === "user"
+              ? "a user"
+              : accountType === "outlet"
+                ? "an outlet"
+                : "a user, outlet, or admin"
+        }`,
+      };
+    }
+
+    // Cache the result
+    authCache.set(cacheKey, {
+      user: accountUser,
+      timestamp: Date.now(),
+    });
+
+    return { status: true, user: accountUser };
   } catch (error) {
-    console.error(`Error in authorize By AccountType: ${error.error}`);
+    console.error(`RBAC error:`, error.message);
     return {
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
       status: false,
@@ -86,19 +145,18 @@ async function rbac(token, accountType) {
 }
 
 exports.getTokenFromHeaders = (req, res, next) => {
-  let token;
   try {
+    let token;
+
     if (
       req.headers.authorization &&
       req.headers.authorization.startsWith("Bearer")
     ) {
-      // Set token from Bearer token in header
       token = req.headers.authorization.split(" ")[1];
     } else if (req.cookies && req.cookies.token) {
-      // Set token from cookie
       token = req.cookies.token;
     }
-    // Make sure token exists
+
     if (!token) {
       return res.status(StatusCodes.UNAUTHORIZED).json({
         status: false,
@@ -106,61 +164,102 @@ exports.getTokenFromHeaders = (req, res, next) => {
         error: "Access token is required.",
       });
     }
-    //add the token to req object
+
+    // Decode token once and cache in request object
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        status: false,
+        statusCode: StatusCodes.UNAUTHORIZED,
+        error: "Invalid or expired token.",
+      });
+    }
+
     req.token = token;
+    req.decodedToken = decoded; // Cache decoded token for reuse
     next();
   } catch (error) {
-    throw new Error(`Error in protect middleware: ${error.error}`);
+    console.error("Token extraction error:", error.message);
+    return res.status(StatusCodes.UNAUTHORIZED).json({
+      status: false,
+      statusCode: StatusCodes.UNAUTHORIZED,
+      error: "Token validation failed.",
+    });
   }
 };
 
 exports.adminOnly = async (req, res, next) => {
-  const token = req.token;
-
-  const authorized = await rbac(token, "admin");
+  const authorized = await rbac(req.token, "admin", req.decodedToken);
 
   if (!authorized.status) {
-    console.log("Unauthorized admin access attempt detected.:", authorized);
-    return res.status(StatusCodes.UNAUTHORIZED).json({
+    return res.status(authorized.statusCode || StatusCodes.UNAUTHORIZED).json({
       status: false,
-      statusCode: StatusCodes.UNAUTHORIZED,
+      statusCode: authorized.statusCode || StatusCodes.UNAUTHORIZED,
       error: authorized.error,
     });
   }
-  req.user = { id: new mongoose.Types.ObjectId(authorized.user._id) };
+
+  req.user = {
+    id: authorized.user._id,
+    role: authorized.user.role,
+    email: authorized.user.email,
+  };
   next();
 };
 
-exports.userOrAdmin = async (req, res, next) => {
-  const token = req.token;
-
-  const authorized = await rbac(token, "userOrAdmin");
+exports.userOrOutletOrAdmin = async (req, res, next) => {
+  const authorized = await rbac(req.token, "userOrOutletOrAdmin", req.decodedToken);
 
   if (!authorized.status) {
-  
-    return res.status(StatusCodes.UNAUTHORIZED).json({
+    return res.status(authorized.statusCode || StatusCodes.UNAUTHORIZED).json({
       status: false,
       statusCode: authorized.statusCode || StatusCodes.UNAUTHORIZED,
-      error: authorized.error || authorized.message || "Unauthorized access",
+      error: authorized.error,
     });
   }
-  req.user = { id: new mongoose.Types.ObjectId(authorized.user._id) };
+
+  req.user = {
+    id: authorized.user._id,
+    role: authorized.user.role,
+    email: authorized.user.email,
+  };
   next();
 };
+
 exports.userOnly = async (req, res, next) => {
-  const token = req.token;
-
-  const authorized = await rbac(token, "user");
-
+  const authorized = await rbac(req.token, "user", req.decodedToken);
 
   if (!authorized.status) {
-    console.error("Unauthorized user access attempt detected.", authorized);
-    return res.status(StatusCodes.UNAUTHORIZED).json({
+    return res.status(authorized.statusCode || StatusCodes.UNAUTHORIZED).json({
       status: false,
-      statusCode: StatusCodes.UNAUTHORIZED,
-      error: authorized.error || authorized.message || "Unauthorized access",
+      statusCode: authorized.statusCode || StatusCodes.UNAUTHORIZED,
+      error: authorized.error,
     });
   }
-  req.user = { id: new mongoose.Types.ObjectId(authorized.user._id) };
+
+  req.user = {
+    id: authorized.user._id,
+    role: authorized.user.role,
+    email: authorized.user.email,
+  };
+  next();
+};
+
+exports.outletOnly = async (req, res, next) => {
+  const authorized = await rbac(req.token, "outlet", req.decodedToken);
+
+  if (!authorized.status) {
+    return res.status(authorized.statusCode || StatusCodes.UNAUTHORIZED).json({
+      status: false,
+      statusCode: authorized.statusCode || StatusCodes.UNAUTHORIZED,
+      error: authorized.error,
+    });
+  }
+
+  req.user = {
+    id: authorized.user._id,
+    role: authorized.user.role,
+    email: authorized.user.email,
+  };
   next();
 };

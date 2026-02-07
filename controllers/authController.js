@@ -1,9 +1,11 @@
 const { StatusCodes } = require("http-status-codes");
 const userService = require("../services/UserService");
+const outletService = require("../services/OutletService");
 const emailService = require("../services/EmailService");
 const OTPService = require("../services/OTPService");
 const { generateOTPValidator } = require("../validators/OTPValidator");
 const jwt = require("jsonwebtoken");
+const { uploadImageBuffer } = require("../utils/cloudinary");
 
 // @desc    Check if email exists
 // @route   POST /api/auth/check-email
@@ -201,6 +203,190 @@ exports.getMe = async (req, res) => {
   }
 };
 
+// @desc    Update user profile
+// @route   PUT /api/auth/profile
+// @access  Private
+exports.updateProfile = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        status: false,
+        error: "Unauthorized",
+        statusCode: StatusCodes.UNAUTHORIZED,
+      });
+    }
+
+    const result = await userService.updateUserProfileService(
+      req.user.id,
+      req.body,
+    );
+
+    if (!result.status) {
+      return res.status(result.statusCode).json({
+        status: result.status || false,
+        error: result.message || "Failed to update profile",
+        statusCode: result.statusCode,
+      });
+    }
+
+    res.status(result.statusCode).json({
+      status: true,
+      data: result.data,
+      statusCode: result.statusCode,
+      message: "Profile updated successfully",
+    });
+  } catch (error) {
+    console.error("UpdateProfile controller error:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      status: false,
+      error: "Server Error",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    });
+  }
+};
+
+// @desc    Delete user account
+// @route   DELETE /api/auth/delete-account
+// @access  Private
+exports.deleteAccount = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        status: false,
+        error: "Unauthorized",
+        statusCode: StatusCodes.UNAUTHORIZED,
+      });
+    }
+
+    const result = await userService.deleteAccountService(
+      req.user.id,
+      req.body?.reason,
+    );
+
+    if (!result.status) {
+      return res.status(result.statusCode).json({
+        status: result.status || false,
+        error: result.message || "Failed to delete account",
+        statusCode: result.statusCode,
+      });
+    }
+
+    res.status(result.statusCode).json({
+      status: true,
+      message: result.message,
+      statusCode: result.statusCode,
+    });
+  } catch (error) {
+    console.error("DeleteAccount controller error:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      status: false,
+      error: "Server Error",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    });
+  }
+};
+
+// @desc    Change password
+// @route   POST /api/auth/change-password
+// @access  Private
+exports.changePassword = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        status: false,
+        error: "Unauthorized",
+        statusCode: StatusCodes.UNAUTHORIZED,
+      });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+
+    const result = await userService.changePasswordService(
+      req.user.id,
+      currentPassword,
+      newPassword,
+    );
+
+    if (!result.status) {
+      return res.status(result.statusCode).json({
+        status: false,
+        error: result.error || "Failed to change password",
+        statusCode: result.statusCode,
+      });
+    }
+
+    return res.status(result.statusCode).json({
+      status: true,
+      message: result.message,
+      statusCode: result.statusCode,
+    });
+  } catch (error) {
+    console.error("ChangePassword controller error:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      status: false,
+      error: "Server Error",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    });
+  }
+};
+
+// @desc    Upload profile image
+// @route   POST /api/auth/profile-image
+// @access  Private
+exports.uploadProfileImage = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        status: false,
+        error: "Unauthorized",
+        statusCode: StatusCodes.UNAUTHORIZED,
+      });
+    }
+
+    if (!req.file) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: false,
+        error: "Image file is required",
+        statusCode: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    const result = await uploadImageBuffer(req.file.buffer, {
+      folder: process.env.CLOUDINARY_FOLDER || "users",
+    });
+
+    const updateResult = await userService.updateUserProfileService(
+      req.user.id,
+      { profileImage: result.secure_url },
+    );
+
+    if (!updateResult.status) {
+      return res.status(updateResult.statusCode).json({
+        status: false,
+        error: updateResult.message || "Failed to update profile image",
+        statusCode: updateResult.statusCode,
+      });
+    }
+
+    return res.status(StatusCodes.OK).json({
+      status: true,
+      data: {
+        url: result.secure_url,
+        user: updateResult.data.user,
+      },
+      message: "Profile image uploaded",
+      statusCode: StatusCodes.OK,
+    });
+  } catch (error) {
+    console.error("UploadProfileImage controller error:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      status: false,
+      error: "Server Error",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    });
+  }
+};
+
 // @route   GET /api/auth/send-otp
 // @access  Public
 exports.sendOTP = async (req, res) => {
@@ -332,7 +518,7 @@ exports.forgotPassword = async (req, res) => {
     // Send reset email if user exists
     if (result.data.resetToken) {
       const APP_SCHEME = process.env.APP_SCHEME || "washub";
-      const resetLink = `${APP_SCHEME}://auth/setupPassword?token=${result.data.resetToken}`;
+      const resetLink = `${APP_SCHEME}://(auth)/setupPassword?token=${result.data.resetToken}`;
 
       await emailService.sendEmail({
         to: email,
@@ -398,6 +584,41 @@ exports.resetPassword = async (req, res) => {
       status: false,
       error: "Server Error",
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    });
+  }
+};
+
+// @desc    Login outlet
+// @route   POST /api/auth/outlet/login
+// @access  Public
+exports.outletLogin = async (req, res) => {
+  try {
+
+    console.log("Outlet login request body:", req.body);
+    const result = await outletService.loginOutletService(req.body);
+
+    // Check if login was successful (has data property)
+    if (result.data && result.data.token) {
+      res.status(result.statusCode).json({
+        status: result.status || true,
+        statusCode: result.statusCode,
+        data: { outlet: result.data.outlet, token: result.data.token },
+      });
+      return;
+    }
+
+    res.status(result.statusCode).json({
+      status: result.status || false,
+      error: result.message?.message || result.message || "Login failed",
+      data: result.message?.details || null,
+      statusCode: result.statusCode,
+    });
+  } catch (error) {
+    console.error("Outlet login controller error:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      status: error.status || false,
+      error: error.error || "Server Error",
+      statusCode: error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR,
     });
   }
 };

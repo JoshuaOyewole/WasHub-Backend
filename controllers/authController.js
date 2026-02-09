@@ -5,7 +5,7 @@ const emailService = require("../services/EmailService");
 const OTPService = require("../services/OTPService");
 const { generateOTPValidator } = require("../validators/OTPValidator");
 const jwt = require("jsonwebtoken");
-const { uploadImageBuffer } = require("../utils/cloudinary");
+const { uploadImageBuffer, deleteImageByUrl } = require("../utils/cloudinary");
 
 // @desc    Check if email exists
 // @route   POST /api/auth/check-email
@@ -349,6 +349,13 @@ exports.uploadProfileImage = async (req, res) => {
         error: "Image file is required",
         statusCode: StatusCodes.BAD_REQUEST,
       });
+    }
+
+    // Fetch current user to get old profile image URL
+    const UserRepository = require("../repositories/UserRepository");
+    const currentUser = await UserRepository.findById(req.user.id);
+    if (currentUser?.profileImage) {
+      await deleteImageByUrl(currentUser.profileImage);
     }
 
     const result = await uploadImageBuffer(req.file.buffer, {

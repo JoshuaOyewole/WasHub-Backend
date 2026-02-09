@@ -1,5 +1,44 @@
 const { StatusCodes } = require("http-status-codes");
 const VehicleService = require("../services/VehicleService");
+const { uploadImageBuffer, deleteImageByUrl } = require("../utils/cloudinary");
+
+// @desc Upload vehicle image
+// @route POST /api/vehicles/upload-image
+// @access Private
+exports.uploadVehicleImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: false,
+        error: "No image file provided",
+        statusCode: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    // Delete the old image from Cloudinary if provided
+    if (req.body.oldImageUrl) {
+      await deleteImageByUrl(req.body.oldImageUrl);
+    }
+
+    const result = await uploadImageBuffer(req.file.buffer, {
+      folder: "cars",
+    });
+
+    return res.status(StatusCodes.OK).json({
+      status: true,
+      data: { imageUrl: result.secure_url },
+      message: "Image uploaded successfully",
+      statusCode: StatusCodes.OK,
+    });
+  } catch (error) {
+    console.error("Upload vehicle image error:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      status: false,
+      error: "Failed to upload image",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    });
+  }
+};
 
 // @desc Create a vehicle
 // @route POST /api/vehicles

@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
 const {
   createVehicle,
   getVehicles,
@@ -8,12 +9,27 @@ const {
   deleteVehicle,
   addToWash,
   removeFromWash,
+  uploadVehicleImage,
 } = require("../controllers/vehicleController");
 const { getTokenFromHeaders, userOnly } = require("../middlewares/auth");
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1 * 1024 * 1024 }, // 1MB limit
+  fileFilter: (req, file, cb) => {
+    const allowed = ["image/jpeg", "image/jpg", "image/png"];
+    if (!allowed.includes(file.mimetype)) {
+      cb(new Error("Only JPG and PNG images are allowed"));
+      return;
+    }
+    cb(null, true);
+  },
+});
 
 router.use(getTokenFromHeaders);
 router.use(userOnly);
 
+router.post("/upload-image", upload.single("image"), uploadVehicleImage);
 router.post("/", createVehicle);
 router.get("/", getVehicles);
 router.get("/:id", getVehicleById);

@@ -524,7 +524,7 @@ exports.forgotPassword = async (req, res) => {
 
     // Send reset email if user exists
     if (result.data.resetToken) {
-      const APP_SCHEME = process.env.APP_SCHEME || "washub";
+      const APP_SCHEME = process.env.APP_SCHEME || "Washub";
       const resetLink = `${APP_SCHEME}://(auth)/setupPassword?token=${result.data.resetToken}`;
 
       await emailService.sendEmail({

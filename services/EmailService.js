@@ -177,7 +177,7 @@ const EmailService = {
 `;
       }
       const mailOptions = {
-        from: `"WasHub" <${EMAIL_FROM}>`,
+        from: `"Washub" <${EMAIL_FROM}>`,
         to,
         subject,
         html,

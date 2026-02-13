@@ -6,6 +6,9 @@ const OTPService = require("../services/OTPService");
 const { generateOTPValidator } = require("../validators/OTPValidator");
 const jwt = require("jsonwebtoken");
 const { uploadImageBuffer, deleteImageByUrl } = require("../utils/cloudinary");
+const UserRepository = require("../repositories/UserRepository");
+
+
 
 // @desc    Check if email exists
 // @route   POST /api/auth/check-email
@@ -63,7 +66,7 @@ exports.register = async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-   
+
     if (decoded.purpose !== "registration") {
       return res.status(StatusCodes.FORBIDDEN).json({
         status: false,
@@ -73,7 +76,6 @@ exports.register = async (req, res) => {
     }
 
     const result = await userService.createUserService(req.body);
-  
 
     if (!result.status) {
       return res.status(result.statusCode).json({
@@ -83,7 +85,7 @@ exports.register = async (req, res) => {
         statusCode: result.statusCode,
       });
     }
-  
+
     res.status(result.statusCode).json({
       status: result.status,
       //token: result.data.token,
@@ -101,7 +103,7 @@ exports.register = async (req, res) => {
 
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       status: error.status || false,
-      error: error.error ||  "Server Error",
+      error: error.error || "Server Error",
       statusCode: error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR,
     });
   }
@@ -166,15 +168,6 @@ exports.logout = async (req, res) => {
 // @access  Private
 exports.getMe = async (req, res) => {
   try {
-    // req.user is set by auth middleware
-    if (!req.user || !req.user.id) {
-      return res.status(StatusCodes.UNAUTHORIZED).json({
-        status: false,
-        error: "Unauthorized",
-        statusCode: StatusCodes.UNAUTHORIZED,
-      });
-    }
-
     // Call service to fetch user details
     const result = await userService.getUserByIdService(req.user.id);
 
@@ -208,14 +201,6 @@ exports.getMe = async (req, res) => {
 // @access  Private
 exports.updateProfile = async (req, res) => {
   try {
-    if (!req.user || !req.user.id) {
-      return res.status(StatusCodes.UNAUTHORIZED).json({
-        status: false,
-        error: "Unauthorized",
-        statusCode: StatusCodes.UNAUTHORIZED,
-      });
-    }
-
     const result = await userService.updateUserProfileService(
       req.user.id,
       req.body,
@@ -250,14 +235,6 @@ exports.updateProfile = async (req, res) => {
 // @access  Private
 exports.deleteAccount = async (req, res) => {
   try {
-    if (!req.user || !req.user.id) {
-      return res.status(StatusCodes.UNAUTHORIZED).json({
-        status: false,
-        error: "Unauthorized",
-        statusCode: StatusCodes.UNAUTHORIZED,
-      });
-    }
-
     const result = await userService.deleteAccountService(
       req.user.id,
       req.body?.reason,
@@ -291,13 +268,13 @@ exports.deleteAccount = async (req, res) => {
 // @access  Private
 exports.changePassword = async (req, res) => {
   try {
-    if (!req.user || !req.user.id) {
+    /*   if (!req.user || !req.user.id) {
       return res.status(StatusCodes.UNAUTHORIZED).json({
         status: false,
         error: "Unauthorized",
         statusCode: StatusCodes.UNAUTHORIZED,
       });
-    }
+    } */
 
     const { currentPassword, newPassword } = req.body;
 
@@ -335,13 +312,13 @@ exports.changePassword = async (req, res) => {
 // @access  Private
 exports.uploadProfileImage = async (req, res) => {
   try {
-    if (!req.user || !req.user.id) {
+    /*  if (!req.user || !req.user.id) {
       return res.status(StatusCodes.UNAUTHORIZED).json({
         status: false,
         error: "Unauthorized",
         statusCode: StatusCodes.UNAUTHORIZED,
       });
-    }
+    } */
 
     if (!req.file) {
       return res.status(StatusCodes.BAD_REQUEST).json({
@@ -351,8 +328,6 @@ exports.uploadProfileImage = async (req, res) => {
       });
     }
 
-    // Fetch current user to get old profile image URL
-    const UserRepository = require("../repositories/UserRepository");
     const currentUser = await UserRepository.findById(req.user.id);
     if (currentUser?.profileImage) {
       await deleteImageByUrl(currentUser.profileImage);
@@ -419,15 +394,15 @@ exports.sendOTP = async (req, res) => {
     );
 
     // Send OTP via email
-      await emailService.sendEmail({
+    await emailService.sendEmail({
       to: email,
       subject: "Your OTP Code",
       template: "sendOtp",
       data: { otp, email },
-    }); 
+    });
     res.status(StatusCodes.OK).json({
       status: true,
-      data:{emailSent: true},
+      data: { emailSent: true },
       message: "OTP sent successfully",
     });
   } catch (error) {
@@ -458,7 +433,7 @@ exports.verifyOTP = async (req, res) => {
 
     if (!response.status) {
       return res.status(StatusCodes.BAD_REQUEST).json({
-        status: response.status || false  ,
+        status: response.status || false,
         error: response.error || "Invalid or expired OTP",
         statusCode: StatusCodes.BAD_REQUEST,
       });
@@ -600,7 +575,6 @@ exports.resetPassword = async (req, res) => {
 // @access  Public
 exports.outletLogin = async (req, res) => {
   try {
-
     console.log("Outlet login request body:", req.body);
     const result = await outletService.loginOutletService(req.body);
 

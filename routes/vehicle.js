@@ -15,7 +15,7 @@ const { getTokenFromHeaders, userOnly } = require("../middlewares/auth");
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 1 * 1024 * 1024 }, // 1MB limit
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
   fileFilter: (req, file, cb) => {
     const allowed = ["image/jpeg", "image/jpg", "image/png"];
     if (!allowed.includes(file.mimetype)) {
@@ -30,7 +30,7 @@ router.use(getTokenFromHeaders);
 router.use(userOnly);
 
 router.post("/upload-image", upload.single("image"), uploadVehicleImage);
-router.post("/", createVehicle);
+router.post("/", upload.single("image"), createVehicle);
 router.get("/", getVehicles);
 router.get("/:id", getVehicleById);
 router.patch("/:id/add-to-wash", addToWash);

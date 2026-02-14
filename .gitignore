@@ -6,6 +6,8 @@
 /scripts 
 # Outlet credentials - DO NOT COMMIT
 OUTLET_CREDENTIALS.md
+/tests/
+app.js
 
 # Other markdown files
 *.md

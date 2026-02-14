@@ -27,7 +27,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/wash-requests", washRequestRoutes);
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/outlets", outletRoutes);
-app.get("/", (req, res) => {
+app.get("/", (_, res) => {
   res.send("Welcome to the API");
 });
 
@@ -64,4 +64,5 @@ app.listen(PORT, () => {
 
 /*  ngrok
   .connect({ addr: PORT, authtoken_from_env: true })
-  .then((listener) => console.log(`Ingress established at: ${listener.url()}`)); */
+  .then((listener) => console.log(`Ingress established at: ${listener.url()}`));
+ */

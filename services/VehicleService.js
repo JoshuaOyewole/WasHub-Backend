@@ -16,7 +16,7 @@ exports.createVehicleService = async (body, userId) => {
       vehicleYear: body.vehicleYear,
       vehicleColor: body.vehicleColor,
       plateNumber: body.plateNumber,
-      image: body.image,
+      image: body.image || null,
     };
 
     const existing = await VehicleRepository.findOne({

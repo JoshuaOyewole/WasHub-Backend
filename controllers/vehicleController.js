@@ -46,10 +46,27 @@ exports.uploadVehicleImage = async (req, res) => {
 exports.createVehicle = async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await VehicleService.createVehicleService(req.body, userId);
+
+    // If an image file was attached, upload to Cloudinary
+    let imageUrl = null;
+    if (req.file) {
+      const uploadResult = await uploadImageBuffer(req.file.buffer, {
+        folder: "cars",
+      });
+      imageUrl = uploadResult.secure_url;
+    }
+
+    const result = await VehicleService.createVehicleService(
+      { ...req.body, image: imageUrl },
+      userId,
+    );
 
     if (!result.status) {
-      return res.status(result.statusCode).json({ status: result.status, error: result.error,statusCode: result.statusCode});
+      // Clean up uploaded image if vehicle creation failed
+      if (imageUrl) {
+        await deleteImageByUrl(imageUrl);
+      }
+      return res.status(result.statusCode).json({ status: result.status, error: result.error, statusCode: result.statusCode });
     }
 
     res.status(result.statusCode).json({ status: result.status, data: result.data, message: result.message, statusCode: result.statusCode });

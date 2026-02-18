@@ -8,7 +8,7 @@ const {
 } = require("../validators/AuthValidator");
 const jwt = require("jsonwebtoken");
 //const { generateOTP } = require("../utils/helpers");
-const { contentSecurityPolicy } = require("helmet");
+//const { contentSecurityPolicy } = require("helmet");
 
 /**
  * User Service - Business logic layer
@@ -60,7 +60,7 @@ exports.createUserService = async (body) => {
       password: validation.data.password,
       role: validation.data.role,
       profileImage:
-        "https://res.cloudinary.com/dic6uwf7a/image/upload/v1770476527/avatar_vfyax6.png",
+        "https://res.cloudinary.com/dic6uwf7a/image/upload/v1771062676/avatar_njfq8z.png",
     };
 
     const response = await UserRepository.create(userData);

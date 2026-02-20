@@ -5,7 +5,7 @@ const multer = require("multer");
 const { StatusCodes } = require("http-status-codes");
 require("dotenv").config();
 const app = express();
-const ngrok = require("@ngrok/ngrok");
+//const ngrok = require("@ngrok/ngrok");
 // Database connection
 const connectDB = require("./database/db");
 connectDB();
@@ -72,7 +72,7 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-ngrok
+/* ngrok
   .connect({ addr: PORT, authtoken_from_env: true })
   .then((listener) => console.log(`Ingress established at: ${listener.url()}`));
- 
+  */

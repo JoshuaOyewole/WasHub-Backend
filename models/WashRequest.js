@@ -7,6 +7,15 @@ const washRequestSchema = new mongoose.Schema(
       ref: "User",
       required: [true, "User ID is required"],
     },
+    transactionReference: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    paymentProcessed: {
+      type: Boolean,
+      default: false,
+    },
     vehicleId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Vehicle",
@@ -33,6 +42,7 @@ const washRequestSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: [
+        "initiated",
         "scheduled",
         "order_received",
         "vehicle_checked",
@@ -42,7 +52,7 @@ const washRequestSchema = new mongoose.Schema(
         "completed",
         "cancelled",
       ],
-      default: "scheduled",
+      default: "initiated",// This can be updated to "scheduled" when payment is confirmed
     },
     washCode: {
       type: String,
@@ -72,11 +82,12 @@ const washRequestSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: 0,
-      max: 6,
+      max: 7,
     },
     steps: {
       type: [String],
       default: [
+        "Wash Request Initiated",
         "Wash Booked Successfully",
         "Wash Order Received",
         "Vehicle Checked",

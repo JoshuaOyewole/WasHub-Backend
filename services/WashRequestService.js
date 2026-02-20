@@ -2,7 +2,7 @@
 const { StatusCodes } = require("http-status-codes");
 const WashRequestRepository = require("../repositories/WashRequestRepository");
 const { generateWashCode } = require("../utils/washCodeGenerator");
-
+const WashRequest = require("../models/WashRequest");
 /**
  * WashRequest Service - Business logic layer
  * Handles wash request-related business operations
@@ -11,10 +11,12 @@ const { generateWashCode } = require("../utils/washCodeGenerator");
 /**
  * Create a new wash request
  * @param {Object} body - Request body containing wash request data
+ * @param {Object} vehicle - Vehicle details from database
  * @param {String} userId - User ID from authenticated user
+ * @param {String} transactionReference - Payment transaction reference
  * @returns {Promise<Object>} - Service response object
  */
-exports.createWashRequestService = async (body, vehicle, userId) => {
+exports.createWashRequestService = async ({ body, vehicle, userId, transactionReference }) => {
   try {
     const vehicleDetails = {
       vehicleType: vehicle.vehicleType,
@@ -38,6 +40,7 @@ exports.createWashRequestService = async (body, vehicle, userId) => {
 
     const washRequestData = {
       userId,
+      transactionReference,
       vehicleId: body.vehicleId,
       serviceName: body.serviceName,
       serviceType: body.serviceType,
@@ -49,10 +52,10 @@ exports.createWashRequestService = async (body, vehicle, userId) => {
       paymentStatus: body.paymentStatus || "pending",
       notes: body.notes ?? null,
       washCode: washCode,
-      status: "scheduled",
+      status: "initiated",// This can be updated to "scheduled" when payment is confirmed
       statusTimeline: [
         {
-          status: "scheduled",
+          status: "initiated",
           timestamp: new Date(),
           updatedBy: "system",
         },
@@ -256,7 +259,7 @@ exports.updateWashRequestStatusService = async (requestId, newStatus) => {
     }
 
     const updateData = { status: newStatus };
-    
+
     // Set timestamp based on new status
     if (newStatus === "completed") {
       updateData.completedAt = new Date();
@@ -375,6 +378,43 @@ exports.verifyWashCodeService = async (washCode) => {
   }
 };
 
+
+
+exports.grantDigitalGoodForWashService = async (reference) => {
+  try {
+    const res = await WashRequest.findOneAndUpdate(
+      {
+        transactionReference: reference,
+        paymentStatus: "pending",
+        paymentProcessed: false
+      },
+      {
+        $set: {
+          paymentStatus: "paid",
+          paymentProcessed: true,
+          status: "scheduled",
+          currentStep: 1,
+          updatedAt: new Date(),
+        },
+        $push: {
+          statusTimeline: {
+            status: "scheduled",
+            timestamp: new Date(),
+            updatedBy: "system",
+          },
+        },
+      },
+      { new: true }
+    );
+
+    return res;
+  }
+  catch (error) {
+    return null;
+  }
+
+
+}
 /**
  * Update wash status (for outlets/agents)
  * @param {String} washCode - 5-digit wash code

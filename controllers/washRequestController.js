@@ -1,6 +1,8 @@
 const { StatusCodes } = require("http-status-codes");
 const WashRequestService = require("../services/WashRequestService");
+const PaymentService = require("../services/paymentService");
 const Vehicle = require("../models/Vehicle");
+const { saveTransactionIntentWithRetry } = require("../utils/helpers");
 
 // @desc    Create a new wash request
 // @route   POST /api/wash-requests
@@ -20,6 +22,7 @@ exports.createWashRequest = async (req, res) => {
 
     const vehicle = await Vehicle.findById(vehicleId);
 
+
     if (!vehicle) {
       return res.status(StatusCodes.NOT_FOUND).json({
         success: false,
@@ -28,12 +31,19 @@ exports.createWashRequest = async (req, res) => {
       });
     }
 
-    const result = await WashRequestService.createWashRequestService(
-      req.body,
+    const txnRef = await PaymentService.initiatePaystackPayment({
+      email: req.user.email,
+      amount: req.body.price,
+    });
+
+    const result = await WashRequestService.createWashRequestService({
+      body: req.body,
       vehicle,
       userId,
-    );
+      transactionReference: txnRef.data.reference,
+    });
 
+    console.log("Wash request creation result:", result);
     if (result.error) {
       return res.status(result.statusCode).json({
         success: false,
@@ -42,9 +52,44 @@ exports.createWashRequest = async (req, res) => {
       });
     }
 
+    // Save transaction intent in background (must not affect API response)
+    saveTransactionIntentWithRetry({
+      email: req.user.email,
+      userId: req.user.id,
+      amount: req.body.price,
+      reference: txnRef.data.reference,
+      details: {
+        authorization_url: txnRef.data.authorization_url,
+        purpose: "wash_request",
+        gateway: "paystack",
+      },
+      status: "initiated",
+    });
+
     res.status(result.statusCode).json({
       success: true,
-      data: result.data,
+      data: {
+        _id: result.data._id,
+        userEmail: req.user.email,
+        notes: result.data.notes,
+        outletId: result.data.outletId,
+        outletLocation: result.data.outletLocation,
+        outletName: result.data.outletName,
+        price: result.data.price,
+        serviceType: result.data.serviceType,
+        status: result.data.status,
+        transactionReference: result.data.transactionReference,
+        userId: result.data.userId,
+        vehicleId: result.data.vehicleId,
+        vehicleInfo: result.data.vehicleInfo,
+        payment: {
+          paymentStatus: result.data.paymentStatus,
+          paymentProcessed: result.data.paymentProcessed,
+          reference: txnRef.data.reference,
+          authorization_url: txnRef.data.authorization_url,
+          access_code: txnRef.data.access_code,
+        },
+      },
       message: result.message,
     });
   } catch (error) {
@@ -290,7 +335,7 @@ exports.updateWashStatusByCode = async (req, res) => {
     const { washCode, status } = req.body;
     const outletId = req.user.id || req.body.outletId; // Assuming outlet info is in user object
 
-  
+
     if (!washCode || !status) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,

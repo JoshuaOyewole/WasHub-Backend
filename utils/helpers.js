@@ -1,6 +1,6 @@
 "use strict";
 const crypto = require("crypto");
-
+const paymentService = require("../services/paymentService");
 /**
  * Validate request body against Joi schema
  * @param {Object} schema - Joi schema object
@@ -54,7 +54,26 @@ function generateOTP(length = 6) {
   return otp;
 }
 
+const saveTransactionIntentWithRetry = async (
+    intent,
+    retriesLeft = 2,
+    delayMs = 1000,
+) => {
+    try {
+        await paymentService.saveTransactionIntent(intent);
+    } catch (saveError) {
+        if (retriesLeft <= 0) {
+            console.error("save transaction intent error:", saveError);
+            return;
+        }
+
+        setTimeout(() => {
+            saveTransactionIntentWithRetry(intent, retriesLeft - 1, delayMs * 2);
+        }, delayMs);
+    }
+};
 module.exports = {
   validate,
   generateOTP,
+  saveTransactionIntentWithRetry,
 };

@@ -5,8 +5,7 @@ const multer = require("multer");
 const { StatusCodes } = require("http-status-codes");
 require("dotenv").config();
 const app = express();
-//const ngrok = require("@ngrok/ngrok");
-
+const ngrok = require("@ngrok/ngrok");
 // Database connection
 const connectDB = require("./database/db");
 connectDB();
@@ -14,6 +13,13 @@ connectDB();
 //Middlewares
 app.use(cors());
 app.use(helmet());
+
+// 🔥 Webhook FIRST (raw body)
+app.use(
+  "/api/transaction/paystack/webhook",
+  express.raw({ type: "application/json" })
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -21,14 +27,18 @@ const authRoutes = require("./routes/auth");
 const washRequestRoutes = require("./routes/washRequest");
 const vehicleRoutes = require("./routes/vehicle");
 const outletRoutes = require("./routes/outlet");
+const transactionRoutes = require("./routes/transaction");
 
 //Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/wash-requests", washRequestRoutes);
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/outlets", outletRoutes);
+app.use("/api/transaction", transactionRoutes);
+
+
 app.get("/", (_, res) => {
-  res.send("Welcome to the API");
+  res.send("Welcome to the Washub API");
 });
 
 // Global error handler (incl. multer file validation errors)
@@ -62,7 +72,7 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-/*  ngrok
+ngrok
   .connect({ addr: PORT, authtoken_from_env: true })
   .then((listener) => console.log(`Ingress established at: ${listener.url()}`));
- */
+ 

@@ -32,12 +32,14 @@ const vehicleSchema = new mongoose.Schema({
   },
   plateNumber: {
     type: String,
+    unique: true,
     required: [true, "Please provide a plate number"],
     maxlength: 20,
+    set: (v) => v.toUpperCase().replace(/\s|-/g, ""),
   },
   image: {
     type: String,
-    optional: true,
+    required: false,
   },
   inWishlist: {
     type: Boolean,
@@ -45,8 +47,8 @@ const vehicleSchema = new mongoose.Schema({
   },
   wishlistAddedAt: {
     type: Date,
-    optional: true,
   },
 }, { timestamps: true });
 
+vehicleSchema.index({ plateNumber: 1 }, { unique: true });
 module.exports = mongoose.model("Vehicle", vehicleSchema);

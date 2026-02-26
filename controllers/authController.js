@@ -109,6 +109,89 @@ exports.register = async (req, res) => {
   }
 };
 
+//Signup with Google
+exports.googleAuth = async (req, res) => {
+  try {
+    const { idToken, action } = req.body;
+
+
+
+    if (!idToken) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: false,
+        error: "Google ID token is required",
+        statusCode: StatusCodes.BAD_REQUEST,
+      });
+    }
+
+    if (action === "login") {
+      const result = await userService.loginUserService({ body: { idToken }, channel: "google" });
+      if (!result.status) {
+        return res.status(result.statusCode).json({
+          status: result.status,
+          error: result.error.message || result.error,
+          data: result.error.details || null,
+          statusCode: result.statusCode,
+        });
+      }
+
+
+      res.status(result.statusCode).json({
+        status: result.status,
+        data: {
+          user: result.data.user,
+          token: result.data.token,
+        },
+        message: "Login Successfully!",
+        statusCode: result.statusCode,
+      });
+    }
+    else if (action === "register") {
+      const result = await userService.createUserService({ idToken, channel: "google" });
+
+      if (!result.status) {
+        return res.status(result.statusCode).json({
+          status: result.status,
+          error: result.error.message || result.error,
+          data: result.error.details || null,
+          statusCode: result.statusCode,
+        });
+      }
+
+
+      res.status(result.statusCode).json({
+        status: result.status,
+        data: {
+          user: result.data.user,
+          token: result.data.token,
+        },
+        message: "Account created Successfully!",
+        statusCode: result.statusCode,
+      });
+
+    }
+
+
+
+  } catch (error) {
+
+    console.log("GoogleAuth controller error:", error);
+    if (error.name === "TokenExpiredError") {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        status: error.status || false,
+        error: error.message || error.error || "Verification token has expired",
+        statusCode: error.statusCode || StatusCodes.FORBIDDEN,
+      });
+    }
+
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      status: error.status || false,
+      error: error.error || "Server Error",
+      statusCode: error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR,
+    });
+  }
+};
+
 // @desc    Login user
 // @route   POST /api/auth/login
 // @access  Public

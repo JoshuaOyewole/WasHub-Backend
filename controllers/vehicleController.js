@@ -62,12 +62,15 @@ exports.createVehicle = async (req, res) => {
     );
 
     if (!result.status) {
+      console.log("Vehicle creation failed, cleaning up image if uploaded", imageUrl);
       // Clean up uploaded image if vehicle creation failed
       if (imageUrl) {
         await deleteImageByUrl(imageUrl);
       }
+
       return res.status(result.statusCode).json({ status: result.status, error: result.error, statusCode: result.statusCode });
     }
+
 
     res.status(result.statusCode).json({ status: result.status, data: result.data, message: result.message, statusCode: result.statusCode });
   } catch (error) {
@@ -88,7 +91,7 @@ exports.getVehicles = async (req, res) => {
     const result = await VehicleService.getVehiclesService(userId, inWishlist);
 
     if (!result.status) {
-      return res.status(result.statusCode).json({ status: result.status, message: result.error,statusCode: result.statusCode});
+      return res.status(result.statusCode).json({ status: result.status, message: result.error, statusCode: result.statusCode });
     }
 
     res.status(result.statusCode).json({ status: result.status, data: result.data, message: result.message, statusCode: result.statusCode });
@@ -106,12 +109,12 @@ exports.getVehicleById = async (req, res) => {
     const userId = req.user.id;
     const { id } = req.params;
 
-  
+
     const result = await VehicleService.getVehicleByIdService(id, userId);
 
 
     if (!result.status) {
-      return res.status(result.statusCode).json({ status: result.status, error: result.error,statusCode: result.statusCode});
+      return res.status(result.statusCode).json({ status: result.status, error: result.error, statusCode: result.statusCode });
     }
 
     res.status(result.statusCode).json({ status: result.status, data: result.data, message: result.message, statusCode: result.statusCode });
@@ -131,7 +134,7 @@ exports.updateVehicle = async (req, res) => {
     const result = await VehicleService.updateVehicleService(id, req.body, userId);
 
     if (!result.status) {
-      return res.status(result.statusCode).json({ status: result.status, error: result.error,statusCode: result.statusCode});
+      return res.status(result.statusCode).json({ status: result.status, error: result.error, statusCode: result.statusCode });
     }
 
     res.status(result.statusCode).json({ status: result.status, data: result.data, message: result.message, statusCode: result.statusCode });
@@ -151,7 +154,7 @@ exports.deleteVehicle = async (req, res) => {
     const result = await VehicleService.deleteVehicleService(id, userId);
 
     if (!result.status) {
-      return res.status(result.statusCode).json({ status: result.status, error: result.error,statusCode: result.statusCode});
+      return res.status(result.statusCode).json({ status: result.status, error: result.error, statusCode: result.statusCode });
     }
 
     res.status(result.statusCode).json({ status: result.status, message: result.message, statusCode: result.statusCode });
@@ -198,5 +201,38 @@ exports.removeFromWash = async (req, res) => {
   } catch (error) {
     console.error("Remove from wash error:", error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ status: false, error: "Internal server error" });
+  }
+};
+
+// @desc Get current user wash status
+// @route GET /api/vehicles/wash-status
+// @access Private
+exports.getUserWashStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await VehicleService.getUserWashStatusService(userId);
+
+    if (!result.status) {
+      return res.status(result.statusCode).json({
+        status: false,
+        error: result.error,
+        statusCode: result.statusCode,
+      });
+    }
+
+    return res.status(result.statusCode).json({
+      status: true,
+      hasActiveWash: result.hasActiveWash,
+      data: result.data,
+      message: result.message,
+      statusCode: result.statusCode,
+    });
+  } catch (error) {
+    console.error("Get user wash status error:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      status: false,
+      error: "Internal server error",
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    });
   }
 };

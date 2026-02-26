@@ -7,6 +7,7 @@ const {
   createUserValidator,
 } = require("../validators/AuthValidator");
 const jwt = require("jsonwebtoken");
+const { verifyGoogleIdToken } = require("../utils/helpers");
 //const { generateOTP } = require("../utils/helpers");
 //const { contentSecurityPolicy } = require("helmet");
 
@@ -21,8 +22,58 @@ const jwt = require("jsonwebtoken");
  * @param {Object} body - Request body containing user data
  * @returns {Promise<Object>} - Service response object
  */
-exports.createUserService = async (body) => {
+exports.createUserService = async ({ idToken, channel, body }) => {
   try {
+    if (channel === "google" && idToken) {
+
+      const result = await verifyGoogleIdToken(idToken);
+      if (!result) {
+        return {
+          status: false,
+          error: "Invalid Google ID token",
+          statusCode: StatusCodes.BAD_REQUEST,
+        };
+      }
+
+
+      const { email, given_name, family_name, picture } = result;
+      let user = await UserRepository.findOne({ email });
+
+      if (user) {
+        return {
+          status: false,
+          error: `${user.provider === "google" ? "User with this email already exists" : "Email is already registered. Kindly login with your email and password."}`,
+          statusCode: StatusCodes.CONFLICT,
+        };
+      }
+
+      user = await UserRepository.create({
+        email,
+        firstname: given_name,
+        lastname: family_name || "",
+        profileImage: picture,
+        role: "user",
+        provider: "google",
+      });
+
+      // Generate JWT token for the user
+      const token = generateToken(user);
+      return {
+        status: true,
+        data: {
+          user: {
+            userId: user._id,
+            name: `${user.firstname} ${user.lastname}`,
+            email: user.email,
+            role: user.role,
+            profileImage: user?.profileImage ?? null,
+          },
+          token: token,
+        },
+        statusCode: StatusCodes.OK,
+      };
+    }
+
     // Validate input data
     const validation = await createUserValidator(body);
 
@@ -100,65 +151,115 @@ exports.createUserService = async (body) => {
  * @param {Object} body - Request body containing login credentials
  * @returns {Promise<Object>} - Service response object
  */
-exports.loginUserService = async (body) => {
+exports.loginUserService = async ({ body, channel }) => {
   try {
-    // Validate input data
-    const validation = await loginUserValidator(body);
-    if (!validation.isValid) {
+    if (channel === "google") {
+      const { idToken } = body;
+
+      const result = await verifyGoogleIdToken(idToken);
+
+      if (!result) {
+        return {
+          status: false,
+          error: "Invalid Google ID token",
+          statusCode: StatusCodes.BAD_REQUEST,
+        };
+      }
+
+
+      const { email } = result;
+
+      // Find user by email
+      const user = await UserRepository.findOne({ email });
+      if (!user) {
+        return {
+          status: false,
+          error: "User not found. Please register first.",
+          statusCode: StatusCodes.NOT_FOUND,
+        };
+      }
+      // Generate JWT token
+      const token = generateToken(user);
+
+      // Prepare user response data
+      const userResponse = {
+        userId: user._id,
+        name: `${user.firstname} ${user.lastname}`,
+        email: user.email,
+        role: user.role,
+        profileImage: user?.profileImage ?? null,
+      };
+
       return {
-        message: {
-          message: validation.errors[0].message,
-          details: validation.errors,
+        data: {
+          user: userResponse,
+          token: token,
         },
-        statusCode: StatusCodes.BAD_REQUEST,
+        status: true,
+        statusCode: StatusCodes.OK,
       };
     }
 
-    const { email, password } = validation.data;
+    else if (channel === "password") {
+      // Validate input data
+      const validation = await loginUserValidator(body);
+      if (!validation.isValid) {
+        return {
+          message: {
+            message: validation.errors[0].message,
+            details: validation.errors,
+          },
+          statusCode: StatusCodes.BAD_REQUEST,
+        };
+      }
 
-    // Find user by email
-    const user = await UserRepository.findOne({ email });
+      const { email, password } = validation.data;
 
-    if (!user) {
-      return {
-        message: {
+      // Find user by email
+      const user = await UserRepository.findOne({ email });
+
+      if (!user) {
+        return {
+          message: {
+            message: "Invalid credentials",
+            field: "email",
+          },
+          statusCode: StatusCodes.UNAUTHORIZED,
+        };
+      }
+
+      // Verify password
+      const isPasswordValid = await user.matchPassword(password);
+
+      if (!isPasswordValid) {
+        return {
           message: "Invalid credentials",
-          field: "email",
-        },
-        statusCode: StatusCodes.UNAUTHORIZED,
+          statusCode: StatusCodes.UNAUTHORIZED,
+          status: false,
+        };
+      }
+
+      // Generate JWT token
+      const token = generateToken(user);
+
+      // Prepare user response data
+      const userResponse = {
+        userId: user._id,
+        name: `${user.firstname} ${user.lastname}`,
+        email: user.email,
+        role: user.role,
+        profileImage: user?.profileImage ?? null,
       };
-    }
 
-    // Verify password
-    const isPasswordValid = await user.matchPassword(password);
-
-    if (!isPasswordValid) {
       return {
-        message: "Invalid credentials",
-        statusCode: StatusCodes.UNAUTHORIZED,
-        status: false,
+        data: {
+          user: userResponse,
+          token: token,
+        },
+        status: true,
+        statusCode: StatusCodes.OK,
       };
     }
-
-    // Generate JWT token
-    const token = generateToken(user);
-
-    // Prepare user response data
-    const userResponse = {
-      userId: user._id,
-      name: `${user.firstname} ${user.lastname}`,
-      email: user.email,
-      role: user.role,
-      profileImage: user?.profileImage ?? null,
-    };
-
-    return {
-      data: {
-        user: userResponse,
-        token: token,
-      },
-      statusCode: StatusCodes.OK,
-    };
   } catch (error) {
     console.error("An unknown error occurred while logging in:", error);
     return {
@@ -286,7 +387,7 @@ exports.updateUserProfileService = async (userId, body) => {
     const updateData = {
       firstname: body.firstname ?? user.firstname,
       lastname: body.lastname ?? user.lastname,
-      phoneNumber: body.phoneNumber ?? user.phoneNumber,
+      phoneNumber: body.phoneNumber ? body.phoneNumber : user.phoneNumber ?? null,
       email: body.email ?? user.email,
       profileImage: body.profileImage ?? user.profileImage,
     };

@@ -10,6 +10,7 @@ const {
   addToWash,
   removeFromWash,
   uploadVehicleImage,
+  getUserWashStatus,
 } = require("../controllers/vehicleController");
 const { getTokenFromHeaders, userOnly } = require("../middlewares/auth");
 
@@ -31,6 +32,7 @@ router.use(userOnly);
 
 router.post("/upload-image", upload.single("image"), uploadVehicleImage);
 router.post("/", upload.single("image"), createVehicle);
+router.get("/wash-status", getUserWashStatus);
 router.get("/", getVehicles);
 router.get("/:id", getVehicleById);
 router.patch("/:id/add-to-wash", addToWash);

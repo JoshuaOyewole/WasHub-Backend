@@ -6,7 +6,7 @@ const crypto = require("crypto");
 
 
 exports.saveTransactionIntent = async (transactionData) => {
-    console.log("Saving transaction intent:", transactionData);
+   // console.log("Saving transaction intent:", transactionData);
     if (!transactionData) {
         throw new Error("Missing required transaction data");
     }

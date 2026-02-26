@@ -134,7 +134,7 @@ exports.verifyPaystackPayment = async (req, res) => {
             return res.sendStatus(200);
         }
         let transactionAmount = Number(transaction.amount * 100 || 0);
-        console.log("Paid Amount:", paidAmount, "Expected Amount:", transactionAmount);
+        //console.log("Paid Amount:", paidAmount, "Expected Amount:", transactionAmount);
         // 🔒 Validate amount
         if (paidAmount !== transactionAmount) {
             console.error("Amount mismatch!");

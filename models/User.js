@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
   },
   phoneNumber: {
     type: String,
-    required: [true, "Please provide a phone number"],
+    //required: [true, "Please provide a phone number"],
     maxlength: 14,
     minLength: 11,
   },
@@ -30,17 +30,20 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, "Please provide a password"],
+   // required: [true, "Please provide a password"],
     minlength: 6,
     select: false,
   },
+  provider: {
+    type: String,
+    enum: ["local", "google"],
+    default: "local",
+  },  
   dob: {
     type: Date,
-    optional: true,
   },
   profileImage: {
     type: String,
-    optional: true,
   },
   role: {
     type: String,

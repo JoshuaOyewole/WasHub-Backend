@@ -3,6 +3,7 @@ const router = express.Router();
 
 const {
   register,
+  googleAuth,
   login,
   getMe,
   updateProfile,
@@ -27,6 +28,7 @@ const {
 
 
 router.post("/register", register);
+router.post("/google", googleAuth);
 router.post("/login", login);
 router.post("/outlet/login", outletLogin);
 //router.post("/logout", protect, logout);

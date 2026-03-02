@@ -71,16 +71,42 @@ const loginUserValidator = async (body) => {
       "string.email": "Please provide a valid email address",
       "any.required": "Email is required",
     }),
-    password: Joi.string().min(6).required().messages({
-      "string.min": "Password must be at least 6 characters long",
-      "any.required": "Password is required",
-    }),
+     password: Joi.string()
+      .min(6)
+      .max(20)
+      .required()
+      .pattern(new RegExp("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)"))
+      .messages({
+        "string.min": "Password must be at least 6 characters long",
+        "string.max": "Password cannot exceed 20 characters",
+        "string.pattern.base":
+          "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+        "any.required": "Password is required",
+      }),
   });
 
+  return validate(schema, body);
+};
+const resetPasswordValidator = async (body) => {
+  const schema = Joi.object({
+   password: Joi.string()
+      .min(6)
+      .max(20)
+      .required()
+      .pattern(new RegExp("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)"))
+      .messages({
+        "string.min": "Password must be at least 6 characters long",
+        "string.max": "Password cannot exceed 20 characters",
+        "string.pattern.base":
+          "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+        "any.required": "Password is required",
+      }),
+})
   return validate(schema, body);
 };
 
 module.exports = {
   createUserValidator,
   loginUserValidator,
+  resetPasswordValidator,
 };

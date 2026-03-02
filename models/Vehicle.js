@@ -32,7 +32,6 @@ const vehicleSchema = new mongoose.Schema({
   },
   plateNumber: {
     type: String,
-    unique: true,
     required: [true, "Please provide a plate number"],
     maxlength: 20,
     set: (v) => v.toUpperCase().replace(/\s|-/g, ""),

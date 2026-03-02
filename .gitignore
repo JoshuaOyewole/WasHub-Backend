@@ -11,3 +11,9 @@ app.js
 
 # Other markdown files
 *.md
+.md
+
+/prompts
+.json
+*.com.json
+test.js

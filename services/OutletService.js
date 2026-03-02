@@ -2,11 +2,77 @@
 const { StatusCodes } = require("http-status-codes");
 const OutletRepository = require("../repositories/OutletRepository");
 const jwt = require("jsonwebtoken");
+const GeocodingService = require("./GeocodingService");
 
 /**
  * Outlet Service - Business logic layer
  */
 
+/**
+ * Search outlets by address string.
+ * Geocodes the address (restricted to Nigeria, cached, with retry),
+ * then performs geo + text search via the repository.
+ *
+ * @param {string} address
+ * @param {{ page?: number, limit?: number }} pagination
+ * @returns {Promise<{ outlets: Array, total: number, page: number, limit: number, geocoded: object }>}
+ */
+exports.searchOutletsByAddress = async (address, { page = 1, limit = 20 } = {}) => {
+  // 1. Geocode with caching, retry, Nigeria restriction
+  const geo = await GeocodingService.geocode(address);
+
+  // 2. Search outlets with combined geo + text strategy
+  const result = await OutletRepository.searchOutlets(
+    [geo.lng, geo.lat],
+    geo.radiusKm,
+    address,
+    { page, limit }
+  );
+
+  return {
+    ...result,
+    geocoded: {
+      lat: geo.lat,
+      lng: geo.lng,
+      radiusKm: geo.radiusKm,
+      formattedAddress: geo.formattedAddress,
+    },
+  };
+};
+
+// Legacy wrapper — kept for backward compatibility
+exports.findNearbyOutlets = async (address, defaultRadiusKm = 10) => {
+  const result = await exports.searchOutletsByAddress(address, { page: 1, limit: 50 });
+  return result.outlets;
+};
+
+exports.getOutletNearbyService = async (lat, lng, radius) => {
+  try {
+    const outlets = await OutletRepository.findNearby(lat, lng, radius);
+
+    if (!outlets || outlets.length === 0) {
+      return {
+        data: [],
+        status: true,
+        message: "No nearby outlets found",
+        statusCode: StatusCodes.OK,
+      };
+    }
+    return {
+      data: outlets,
+      status: true,
+      message: "Nearby outlets retrieved successfully",
+      statusCode: StatusCodes.OK,
+    };
+  } catch (error) {
+    console.error("Error fetching nearby outlets:", error);
+    return {
+      error: error.message || "Failed to fetch nearby outlets",
+      status: false,
+      statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+    };
+  }
+};
 exports.createOutletService = async (body) => {
   try {
     const outletData = {
@@ -159,6 +225,7 @@ const generateOutletToken = (outlet) => {
 };
 
 exports.generateOutletTokenService = generateOutletToken;
+
 exports.getOutletsService = async (filters = {}) => {
   try {
     const query = { isActive: true };

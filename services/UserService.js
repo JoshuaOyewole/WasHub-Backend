@@ -5,6 +5,7 @@ const DeletedAccountRepository = require("../repositories/DeletedAccountReposito
 const {
   loginUserValidator,
   createUserValidator,
+  resetPasswordValidator
 } = require("../validators/AuthValidator");
 const jwt = require("jsonwebtoken");
 const { verifyGoogleIdToken } = require("../utils/helpers");
@@ -533,6 +534,8 @@ exports.forgotPasswordService = async (email) => {
     // Check if user exists with this email
     const user = await UserRepository.findOne({ email });
 
+  
+     
     // For security, always return success even if user doesn't exist
     // This prevents email enumeration attacks
     if (!user) {
@@ -542,6 +545,15 @@ exports.forgotPasswordService = async (email) => {
           email: email,
         },
         statusCode: StatusCodes.OK,
+      };
+    }
+
+    //This ensures that users who signed up with Google can't use the forgot password flow, which is meant for password-based accounts
+      if(user && user.provider === "google") {
+      return {
+        status: false,
+        error: "Password reset is not available for Google accounts. Please login with Google.",
+        statusCode: StatusCodes.CONFLICT,
       };
     }
 
@@ -573,7 +585,7 @@ exports.forgotPasswordService = async (email) => {
   } catch (error) {
     console.error("Error in forgot password service:", error);
     return {
-      message: "Internal server error occurred while processing request",
+      error: "Internal server error occurred while processing request",
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
     };
   }
@@ -595,14 +607,16 @@ exports.resetPasswordService = async (token, newPassword) => {
       };
     }
 
-    // Validate password length
-    if (newPassword.length < 6) {
+    const { error } = await resetPasswordValidator({ password: newPassword });
+
+    if (error) {
       return {
         status: false,
-        error: "Password must be at least 6 characters long",
+        error: error.details[0].message,
         statusCode: StatusCodes.BAD_REQUEST,
       };
     }
+
 
     // Verify token
     let decoded;
@@ -638,7 +652,7 @@ exports.resetPasswordService = async (token, newPassword) => {
     if (!user) {
       return {
         status: false,
-        error: "User not found",
+        error: "Unauthorized",
         statusCode: StatusCodes.NOT_FOUND,
       };
     }
@@ -680,15 +694,17 @@ exports.changePasswordService = async (
     if (!userId || !currentPassword || !newPassword) {
       return {
         status: false,
-        error: "Current and new password are required",
+        error: "Invalid information supplied",
         statusCode: StatusCodes.BAD_REQUEST,
       };
     }
 
-    if (newPassword.length < 6) {
+  const { error } = await resetPasswordValidator({ password: newPassword });
+
+    if (error) {
       return {
         status: false,
-        error: "Password must be at least 6 characters long",
+        error: error.details[0].message,
         statusCode: StatusCodes.BAD_REQUEST,
       };
     }
@@ -698,7 +714,7 @@ exports.changePasswordService = async (
     if (!user) {
       return {
         status: false,
-        error: "User not found",
+        error: "Unauthorized",
         statusCode: StatusCodes.NOT_FOUND,
       };
     }
@@ -733,7 +749,7 @@ exports.changePasswordService = async (
     console.error("Error changing password:", error);
     return {
       status: false,
-      error: "Internal server error occurred while changing password",
+      error: error.error || "Internal server error occurred while changing password",
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
     };
   }

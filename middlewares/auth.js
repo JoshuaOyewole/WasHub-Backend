@@ -20,8 +20,11 @@ setInterval(() => {
 
 // Optimized token verification with caching
 function verifyToken(tokenValue) {
+
   try {
+ 
     const decoded = jwt.verify(tokenValue, process.env.JWT_SECRET);
+    
     return decoded || null;
   } catch (error) {
     return null;
@@ -164,6 +167,7 @@ exports.getTokenFromHeaders = (req, res, next) => {
         error: "Access token is required.",
       });
     }
+
 
     // Decode token once and cache in request object
     const decoded = verifyToken(token);

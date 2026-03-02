@@ -13,6 +13,7 @@ const UserRepository = require("../repositories/UserRepository");
 // @desc    Check if email exists
 // @route   POST /api/auth/check-email
 // @access  Public
+
 exports.checkEmail = async (req, res) => {
   try {
     const { email } = req.body;
@@ -197,8 +198,8 @@ exports.googleAuth = async (req, res) => {
 // @access  Public
 exports.login = async (req, res) => {
   try {
-    const result = await userService.loginUserService(req.body);
-
+    const result = await userService.loginUserService({ body: req.body, channel: "password" });
+   
     // Check if login was successful (has data property)
     if (result.data && result.data.token) {
       res.status(result.statusCode).json({
@@ -575,7 +576,7 @@ exports.forgotPassword = async (req, res) => {
     if (!result.data) {
       return res.status(result.statusCode).json({
         status: false,
-        error: result.message || "Failed to process request",
+        error: result.error || "Failed to process request",
         statusCode: result.statusCode,
       });
     }

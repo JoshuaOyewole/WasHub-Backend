@@ -43,7 +43,7 @@ exports.createVehicleService = async (body, userId) => {
     };
 
     const existing = await VehicleRepository.findOne({
-     // userId,
+      // userId,
       plateNumber: vehicleData.plateNumber,
     });
 
@@ -305,56 +305,49 @@ exports.removeFromWashService = async (id, userId) => {
 
 exports.getUserWashStatusService = async (userId) => {
   try {
+
     const activeWash = await WashRequest.find({
       userId,
       status: { $in: ACTIVE_WASH_STATUSES },
     }).sort({ createdAt: -1 });
 
-  
+
     if (!activeWash || activeWash.length === 0) {
       return {
         status: true,
         data: null,
         hasActiveWash: false,
-        message: "No active wash found",
+        error: "No active wash found",
         statusCode: StatusCodes.OK,
       };
     }
 
-    const currentStepFromStatus = STATUS_TO_STEP_NUMBER[activeWash.status] ?? 0;
+    const washes = activeWash.map(wash => (
+      {
+        id: String(wash._id),
+        status: wash.status,
+        serviceType: wash.serviceType,
+        vehicleInfo: {
+          vehicleType:`${wash.vehicleInfo.vehicleMake}`,
+          plateNumber: wash.vehicleInfo.licensePlate,
+        },
+        currentStep: wash.currentStep || 0,
+        steps: Array.isArray(wash.steps) ? wash.steps : [],
+      }
+    ))
 
-    console.log("Active wash found:", currentStepFromStatus, activeWash);
-    const currentStep =
-      Number.isInteger(activeWash.currentStep) && activeWash.currentStep >= 0
-        ? Math.max(activeWash.currentStep, currentStepFromStatus)
-        : currentStepFromStatus;
 
-    const serviceName =
-      activeWash.serviceType
-        ? `${activeWash.serviceType.charAt(0).toUpperCase()}${activeWash.serviceType.slice(1)}`
-        : "Wash Request";
-
-    const vehicleInfo = `${activeWash.vehicleInfo?.vehicleMake || activeWash.vehicleInfo?.vehicleType || "Vehicle"} - ${activeWash.vehicleInfo?.licensePlate || "N/A"}`;
 
     return {
       status: true,
-      hasActiveWash: true,
-      data: {
-        id: String(activeWash._id),
-        washRequestId: String(activeWash._id),
-        status: activeWash.status,
-        serviceName,
-        vehicleInfo,
-        currentStep,
-        steps: Array.isArray(activeWash.steps) ? activeWash.steps : [],
-      },
+      data: { washes, hasActiveWash: true },
       message: "Wash status retrieved successfully",
       statusCode: StatusCodes.OK,
     };
   } catch (error) {
     console.error("Error fetching user wash status:", error);
     return {
-      error: error.message || "Failed to fetch wash status",
+      error: error.error || "Failed to fetch wash status",
       status: false,
       statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
     };

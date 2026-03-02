@@ -43,7 +43,7 @@ exports.createWashRequest = async (req, res) => {
       transactionReference: txnRef.data.reference,
     });
 
-    console.log("Wash request creation result:", result);
+   
     if (result.error) {
       return res.status(result.statusCode).json({
         success: false,

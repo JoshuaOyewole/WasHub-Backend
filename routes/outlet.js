@@ -20,12 +20,15 @@ const { rateLimit } = require("../middlewares/rateLimit");
 // Rate limiter for search (geocoding calls)
 const searchLimiter = rateLimit({ windowMs: 60_000, max: 30 });
 
+router.get("/nearby", getTokenFromHeaders, userOnly, getOutletNearby);
+
 // Protected routes - admin only
 router.use(getTokenFromHeaders);
 router.get("/search", userOnly, searchLimiter, searchOutletByAddress);
 router.get("/", userOrOutletOrAdmin, getOutlets);
 router.get("/:id", userOrOutletOrAdmin, getOutletById);
-router.get("/nearby", userOnly, getOutletNearby);
+
+
 
 
 router.post("/", outletOnly, createOutlet);

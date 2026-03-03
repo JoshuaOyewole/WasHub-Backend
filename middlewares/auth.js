@@ -232,7 +232,7 @@ exports.userOrOutletOrAdmin = async (req, res, next) => {
 
 exports.userOnly = async (req, res, next) => {
   const authorized = await rbac(req.token, "user", req.decodedToken);
-
+  
   if (!authorized.status) {
     return res.status(authorized.statusCode || StatusCodes.UNAUTHORIZED).json({
       status: false,

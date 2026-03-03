@@ -216,10 +216,10 @@ exports.deleteOutlet = async (req, res) => {
 // @route GET /api/outlets/nearby?lat=6.5244&lng=3.3792&radius=5000
 // @access Private (User)
 exports.getOutletNearby = async (req, res) => {
+
   try {
     const { lat, lng, radius } = req.query; 
-
-    if(!lat || !lng || !radius) {
+   if(!lat || !lng || !radius) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         status: false,
         error: "Latitude, longitude and radius are required",

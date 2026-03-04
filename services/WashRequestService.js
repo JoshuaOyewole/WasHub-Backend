@@ -92,6 +92,7 @@ exports.getWashRequestsService = async (userId, status = null) => {
 
     // Add status filter if provided
     const validStatuses = [
+      "initiated",
       "scheduled",
       "order_received",
       "vehicle_checked",
@@ -393,7 +394,7 @@ exports.grantDigitalGoodForWashService = async (reference) => {
           paymentStatus: "paid",
           paymentProcessed: true,
           status: "scheduled",
-          currentStep: 1,
+          currentStep: 2,
           updatedAt: new Date(),
         },
         $push: {

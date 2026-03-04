@@ -76,7 +76,8 @@ exports.register = async (req, res) => {
       });
     }
 
-    const result = await userService.createUserService(req.body);
+
+    const result = await userService.createUserService({idToken:null, body: req.body, channel: "password" });
 
     if (!result.status) {
       return res.status(result.statusCode).json({

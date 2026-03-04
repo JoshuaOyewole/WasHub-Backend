@@ -50,7 +50,7 @@ const createUserValidator = async (body) => {
           "Password must contain at least one uppercase letter, one lowercase letter, and one number",
         "any.required": "Password is required",
       }),
-    role: Joi.string().valid("user", "admin").default("user").messages({
+    role: Joi.string().optional().valid("user", "admin").default("user").messages({
       "any.only": "Role must be either user or admin",
     }),
     /*   

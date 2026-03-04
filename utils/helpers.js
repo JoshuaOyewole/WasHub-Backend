@@ -13,6 +13,7 @@ const client = new OAuth2Client(process.env.GOOGLE_WEB_CLIENT_ID);
  * @returns {Object} - Validation result
  */
 const validate = async (schema, body) => {
+
   try {
     const { error, value } = schema.validate(body, {
       abortEarly: false, // Include all errors

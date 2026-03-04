@@ -24,6 +24,7 @@ const { verifyGoogleIdToken } = require("../utils/helpers");
  * @returns {Promise<Object>} - Service response object
  */
 exports.createUserService = async ({ idToken, channel, body }) => {
+
   try {
     if (channel === "google" && idToken) {
 
@@ -78,7 +79,7 @@ exports.createUserService = async ({ idToken, channel, body }) => {
     // Validate input data
     const validation = await createUserValidator(body);
 
-    if (!validation.isValid) {
+    if (!validation.isValid && !validation.data) {
       return {
         error: validation.errors[0].message,
         data: {
@@ -89,7 +90,7 @@ exports.createUserService = async ({ idToken, channel, body }) => {
         statusCode: StatusCodes.BAD_REQUEST,
       };
     }
-
+ 
     const { email } = validation.data;
 
     // Check if user already exists
@@ -112,7 +113,7 @@ exports.createUserService = async ({ idToken, channel, body }) => {
       password: validation.data.password,
       role: validation.data.role,
       profileImage:
-        "https://res.cloudinary.com/dic6uwf7a/image/upload/v1771062676/avatar_njfq8z.png",
+        "https://res.cloudinary.com/dic6uwf7a/image/upload/v1772633471/avatar_amvmn9.png",
     };
 
     const response = await UserRepository.create(userData);

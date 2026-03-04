@@ -443,6 +443,7 @@ exports.updateWashStatusByCodeService = async (washCode, newStatus, outletId) =>
 
     // Define valid status progression
     const statusOrder = [
+      "initiated",
       "scheduled",
       "order_received",
       "vehicle_checked",

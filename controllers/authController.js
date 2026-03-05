@@ -8,8 +8,6 @@ const jwt = require("jsonwebtoken");
 const { uploadImageBuffer, deleteImageByUrl } = require("../utils/cloudinary");
 const UserRepository = require("../repositories/UserRepository");
 
-
-
 // @desc    Check if email exists
 // @route   POST /api/auth/check-email
 // @access  Public
